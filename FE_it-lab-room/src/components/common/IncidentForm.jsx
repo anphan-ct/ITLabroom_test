@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Boxes, Monitor, Wrench } from "lucide-react";
 import StatusBadge from "./StatusBadge";
-import { getRoomsFromApi, getRoomComputersFromApi } from "../../services/room.service";
+import { getRoomsForRole, getRoomComputersForRole } from "../../services/room.service";
 import { createIncidentReport } from "../../services/incidentReport.service";
 import {
   INCIDENT_TYPE_OPTIONS,
@@ -30,10 +30,10 @@ export default function IncidentForm({
 
   // Lấy danh sách phòng máy khi mount
   useEffect(() => {
-    getRoomsFromApi()
+    getRoomsForRole(role)
       .then((res) => setRooms(res.data || []))
       .catch(() => { });
-  }, []);
+  }, [role]);
 
   // Lấy máy tính + thiết bị khi chọn phòng
   useEffect(() => {
@@ -42,7 +42,7 @@ export default function IncidentForm({
       setRoomEquipments([]);
       return;
     }
-    getRoomComputersFromApi(selectedRoomId)
+    getRoomComputersForRole(role, selectedRoomId)
       .then((res) => {
         const data = res.data || {};
         setRoomComputers(data.may_tinh || data.computers || []);

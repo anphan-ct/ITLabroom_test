@@ -53,6 +53,10 @@ Route::middleware(['auth:sanctum', 'abilities:teacher'])->group(function () {
     // Báo cáo sự cố — giảng viên
     Route::get('/teacher/incident-reports', [CommonIncidentReportController::class, 'index']);
     Route::post('/teacher/incident-reports', [CommonIncidentReportController::class, 'store']);
+
+    // Phòng máy & máy tính/thiết bị — chỉ đọc (dùng cho form báo cáo sự cố)
+    Route::get('/teacher/rooms', [RoomController::class, 'index']);
+    Route::get('/teacher/rooms/{room}/computers', [RoomController::class, 'computers']);
 });
 
 // Nhóm API dành cho Sinh viên
@@ -62,6 +66,10 @@ Route::middleware(['auth:sanctum', 'abilities:student'])->group(function () {
     // Báo cáo sự cố — sinh viên
     Route::get('/student/incident-reports', [CommonIncidentReportController::class, 'index']);
     Route::post('/student/incident-reports', [CommonIncidentReportController::class, 'store']);
+
+    // Phòng máy & máy tính/thiết bị — chỉ đọc (dùng cho form báo cáo sự cố)
+    Route::get('/student/rooms', [RoomController::class, 'index']);
+    Route::get('/student/rooms/{room}/computers', [RoomController::class, 'computers']);
 });
 
 // Nhóm API dành cho Admin

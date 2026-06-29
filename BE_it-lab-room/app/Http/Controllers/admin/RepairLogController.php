@@ -123,13 +123,13 @@ class RepairLogController extends Controller
                     // Cập nhật máy tính → hoạt động (nếu có)
                     if (!empty($data['ma_may_tinh'])) {
                         Computer::where('id', $data['ma_may_tinh'])
-                            ->update(['trang_thai' => 'Hoạt động']);
+                            ->update(['trang_thai' => 'active']);
                     }
 
                     // Cập nhật thiết bị → hoạt động (nếu có)
                     if (!empty($data['ma_thiet_bi'])) {
                         Equipment::where('id', $data['ma_thiet_bi'])
-                            ->update(['trang_thai' => 'Sẵn sàng']);
+                            ->update(['trang_thai' => 'active']);
                     }
                 }
 

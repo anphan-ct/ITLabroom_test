@@ -121,13 +121,20 @@ class RoomController extends Controller
                 ->orderBy('ma_may')
                 ->get();
 
+            // Lấy danh sách thiết bị thuộc phòng để hiển thị trong form báo cáo sự cố
+            $equipments = $room->equipments()
+                ->select(['id', 'ma_phong', 'ten_thiet_bi', 'so_luong', 'don_vi', 'trang_thai', 'ghi_chu'])
+                ->orderBy('ten_thiet_bi')
+                ->get();
+
             return response()->json([
                 'status' => true,
                 'message' => 'Lấy danh sách máy tính theo phòng thành công',
                 'error_code' => 200,
                 'data' => [
-                    'room' => new RoomResource($room),
-                    'computers' => ComputerResource::collection($computers),
+                    'room'       => new RoomResource($room),
+                    'computers'  => ComputerResource::collection($computers),
+                    'equipments' => $equipments,
                 ],
             ], 200);
         } catch (Throwable $e) {

@@ -121,6 +121,16 @@ export const CONST_APIS = {
     INDEX: "/api/student/incident-reports",
     STORE: "/api/student/incident-reports",
   },
+  // Phòng máy — giảng viên (chỉ đọc, dùng cho form báo cáo sự cố)
+  TEACHER_ROOMS: {
+    INDEX: "/api/teacher/rooms",
+    COMPUTERS: (id) => `/api/teacher/rooms/${id}/computers`,
+  },
+  // Phòng máy — sinh viên (chỉ đọc, dùng cho form báo cáo sự cố)
+  STUDENT_ROOMS: {
+    INDEX: "/api/student/rooms",
+    COMPUTERS: (id) => `/api/student/rooms/${id}/computers`,
+  },
 };
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || "";
