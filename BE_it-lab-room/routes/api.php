@@ -8,12 +8,16 @@ use App\Http\Controllers\admin\ComputerLabScheduleController;
 use App\Http\Controllers\admin\ComputerTransferController;
 use App\Http\Controllers\admin\CourseSectionController;
 use App\Http\Controllers\admin\DepartmentController;
+use App\Http\Controllers\admin\IncidentReportController as AdminIncidentReportController;
+use App\Http\Controllers\admin\MaintenanceTicketController as AdminMaintenanceTicketController;
+use App\Http\Controllers\admin\RepairLogController as AdminRepairLogController;
 use App\Http\Controllers\admin\RoomBookingController as AdminRoomBookingController;
 use App\Http\Controllers\admin\RoomController;
 use App\Http\Controllers\admin\SchoolClassController;
 use App\Http\Controllers\admin\SubjectController;
 use App\Http\Controllers\admin\UserController;
 use App\Http\Controllers\common\AuthController as CommonAuthController;
+use App\Http\Controllers\common\IncidentReportController as CommonIncidentReportController;
 use App\Http\Controllers\student\AuthController as StudentAuthController;
 use App\Http\Controllers\student\ComputerLabScheduleController as StudentComputerLabScheduleController;
 use App\Http\Controllers\teacher\AuthController as TeacherAuthController;
@@ -45,11 +49,20 @@ Route::middleware(['auth:sanctum', 'abilities:teacher'])->group(function () {
     Route::get('/teacher/room-bookings', [TeacherRoomBookingController::class, 'index']);
     Route::get('/teacher/room-bookings/availability', [TeacherRoomBookingController::class, 'availability']);
     Route::post('/teacher/room-bookings', [TeacherRoomBookingController::class, 'store']);
+
+    // Báo cáo sự cố — giảng viên
+    Route::get('/teacher/incident-reports', [CommonIncidentReportController::class, 'index']);
+    Route::post('/teacher/incident-reports', [CommonIncidentReportController::class, 'store']);
 });
 
 // Nhóm API dành cho Sinh viên
-Route::middleware(['auth:sanctum', 'abilities:student'])
-    ->get('/student/computer-lab-schedules', [StudentComputerLabScheduleController::class, 'index']);
+Route::middleware(['auth:sanctum', 'abilities:student'])->group(function () {
+    Route::get('/student/computer-lab-schedules', [StudentComputerLabScheduleController::class, 'index']);
+
+    // Báo cáo sự cố — sinh viên
+    Route::get('/student/incident-reports', [CommonIncidentReportController::class, 'index']);
+    Route::post('/student/incident-reports', [CommonIncidentReportController::class, 'store']);
+});
 
 // Nhóm API dành cho Admin
 Route::middleware(['auth:sanctum', 'abilities:admin'])->group(function () {
@@ -145,5 +158,23 @@ Route::middleware(['auth:sanctum', 'abilities:admin'])->group(function () {
     Route::prefix('admin/computer-transfers')->group(function () {
         Route::get('/', [ComputerTransferController::class, 'index']);
         Route::post('/', [ComputerTransferController::class, 'store']);
+    });
+
+    // Nhóm API quản lý báo cáo sự cố (admin)
+    Route::prefix('admin/incident-reports')->group(function () {
+        Route::get('/', [AdminIncidentReportController::class, 'index']);
+        Route::patch('/{incidentReport}/status', [AdminIncidentReportController::class, 'updateStatus']);
+    });
+
+    // Nhóm API quản lý phiếu bảo trì (admin)
+    Route::prefix('admin/maintenance-tickets')->group(function () {
+        Route::get('/', [AdminMaintenanceTicketController::class, 'index']);
+        Route::post('/', [AdminMaintenanceTicketController::class, 'store']);
+    });
+
+    // Nhóm API quản lý nhật ký sửa chữa (admin)
+    Route::prefix('admin/repair-logs')->group(function () {
+        Route::get('/', [AdminRepairLogController::class, 'index']);
+        Route::post('/', [AdminRepairLogController::class, 'store']);
     });
 });

@@ -82,12 +82,14 @@ export const roleMenus = {
       ],
     },
     { to: "/teacher/incidents", label: "Báo sự cố", icon: AlertTriangle },
+    { to: "/teacher/my-incidents", label: "Báo cáo của tôi", icon: ClipboardList },
     { to: "/teacher/bookings", label: "Đăng ký phòng", icon: ClipboardList },
   ],
   student: [
     { to: "/student/schedules", label: "Lịch học", icon: CalendarDays },
     { to: "/student/computers", label: "Tra cứu máy", icon: Monitor },
     { to: "/student/incidents", label: "Báo hỏng", icon: AlertTriangle },
+    { to: "/student/my-incidents", label: "Báo cáo của tôi", icon: ClipboardList },
     { to: "/student/attendance", label: "Điểm danh", icon: ClipboardCheck },
   ],
 };

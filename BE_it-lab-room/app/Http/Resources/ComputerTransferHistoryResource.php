@@ -11,7 +11,7 @@ class ComputerTransferHistoryResource extends JsonResource
     {
         return [
             'id'                     => $this->id,
-            'ma_may_tinh'            => $this->ma_may_tinh,
+            'may_tinh_ids'           => $this->may_tinh_ids,
             'ma_phong_cu'            => $this->ma_phong_cu,
             'ma_phong_moi'           => $this->ma_phong_moi,
             'ma_nguoi_dieu_chuyen'   => $this->ma_nguoi_dieu_chuyen,
@@ -20,13 +20,15 @@ class ComputerTransferHistoryResource extends JsonResource
             'ghi_chu'                => $this->ghi_chu,
             'created_at'             => $this->created_at,
 
-            // Thông tin máy tính được điều chuyển
-            'may_tinh' => $this->whenLoaded('computer', function () {
-                return [
-                    'id'      => $this->computer->id,
-                    'ma_may'  => $this->computer->ma_may,
-                    'ten_may' => $this->computer->ten_may,
-                ];
+            // Thông tin danh sách máy tính được điều chuyển (mảng nhiều máy)
+            'may_tinh' => $this->whenLoaded('computers', function () {
+                return $this->computers->map(function ($computer) {
+                    return [
+                        'id'      => $computer->id,
+                        'ma_may'  => $computer->ma_may,
+                        'ten_may' => $computer->ten_may,
+                    ];
+                })->values()->toArray();
             }),
 
             // Thông tin phòng cũ

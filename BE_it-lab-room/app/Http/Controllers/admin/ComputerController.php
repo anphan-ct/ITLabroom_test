@@ -133,11 +133,11 @@ class ComputerController extends Controller
                     ->where('ma_may_tinh', $computer->id)
                     ->delete();
 
-                DB::table('chi_tiet_muon_may')
+                DB::table('chi_tiet_phieu_muon_may')
                     ->where('ma_may_tinh', $computer->id)
                     ->delete();
 
-                DB::table('chi_tiet_tra_may')
+                DB::table('chi_tiet_phieu_tra_may')
                     ->where('ma_may_tinh', $computer->id)
                     ->delete();
 

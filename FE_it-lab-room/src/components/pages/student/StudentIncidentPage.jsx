@@ -10,8 +10,9 @@ export default function StudentIncidentPage() {
     <AppShell role="student" title="Báo hỏng thiết bị" subtitle="Sinh viên cập nhật tình trạng máy tính hoặc thiết bị phòng máy">
       <SectionCard title="Form báo hỏng">
         <IncidentForm
+          role="student"
           initialComputerCode={state?.computerCode}
-          initialRoomCode={state?.room}
+          initialRoomId={state?.roomId || state?.room || ""}
         />
       </SectionCard>
     </AppShell>

@@ -96,7 +96,33 @@ export const CONST_APIS = {
     INDEX: "/api/admin/computer-transfers",
     STORE: "/api/admin/computer-transfers",
   },
+  // Báo cáo sự cố (admin)
+  INCIDENT_REPORTS: {
+    INDEX: "/api/admin/incident-reports",
+    UPDATE_STATUS: (id) => `/api/admin/incident-reports/${id}/status`,
+  },
+  // Phiếu bảo trì (admin)
+  MAINTENANCE_TICKETS: {
+    INDEX: "/api/admin/maintenance-tickets",
+    STORE: "/api/admin/maintenance-tickets",
+  },
+  // Nhật ký sửa chữa (admin)
+  REPAIR_LOGS: {
+    INDEX: "/api/admin/repair-logs",
+    STORE: "/api/admin/repair-logs",
+  },
+  // Báo cáo sự cố (giảng viên)
+  TEACHER_INCIDENT_REPORTS: {
+    INDEX: "/api/teacher/incident-reports",
+    STORE: "/api/teacher/incident-reports",
+  },
+  // Báo cáo sự cố (sinh viên)
+  STUDENT_INCIDENT_REPORTS: {
+    INDEX: "/api/student/incident-reports",
+    STORE: "/api/student/incident-reports",
+  },
 };
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+
 
