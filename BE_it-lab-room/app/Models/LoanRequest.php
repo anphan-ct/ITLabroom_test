@@ -15,10 +15,10 @@ class LoanRequest extends Model
         'ma_phieu_muon',
         'ma_giang_vien',
         'ma_phong_ban',
-        'ma_phong',
         'ngay_muon',
         'so_luong',
         'ly_do_muon',
+        'trang_thai',
     ];
 
     protected $casts = [
@@ -28,5 +28,5 @@ class LoanRequest extends Model
 
     public function teacher(): BelongsTo { return $this->belongsTo(Teacher::class, 'ma_giang_vien'); }
     public function department(): BelongsTo { return $this->belongsTo(Department::class, 'ma_phong_ban'); }
-    public function room(): BelongsTo { return $this->belongsTo(Room::class, 'ma_phong'); }
+    public function details() { return $this->hasMany(LoanRequestDetail::class, 'ma_phieu_muon'); }
 }

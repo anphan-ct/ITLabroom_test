@@ -15,8 +15,9 @@ export default function IncidentPage({
     <AppShell role={role} title={title} subtitle={subtitle}>
       <SectionCard title={sectionTitle}>
         <IncidentForm
+          role={role}
           initialComputerCode={state?.computerCode}
-          initialRoomCode={state?.room}
+          initialRoomId={state?.roomId || state?.room || ""}
         />
       </SectionCard>
     </AppShell>

@@ -39,6 +39,7 @@ import TeacherAttendanceSessionStatusPage from "./components/pages/teacher/Teach
 import TeacherStudentAttendanceDetailPage from "./components/pages/teacher/TeacherStudentAttendanceDetailPage.jsx";
 import RoomBookingPage from "./components/pages/teacher/RoomBookingPage.jsx";
 import IncidentPage from "./components/common/IncidentPage.jsx";
+import MyIncidentReportsPage from "./components/common/MyIncidentReportsPage.jsx";
 
 import StudentSchedulePage from "./components/pages/student/StudentSchedulePage.jsx";
 import ComputerLookupPage from "./components/pages/student/ComputerLookupPage.jsx";
@@ -115,12 +116,21 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/teacher/my-incidents"
+        element={
+          <ProtectedRoute role="teacher">
+            <MyIncidentReportsPage role="teacher" />
+          </ProtectedRoute>
+        }
+      />
       <Route path="/teacher/bookings" element={<ProtectedRoute role="teacher"><RoomBookingPage /></ProtectedRoute>} />
 
       <Route path="/student" element={<ProtectedRoute role="student"><Navigate to="/student/schedules" replace /></ProtectedRoute>} />
       <Route path="/student/schedules" element={<ProtectedRoute role="student"><StudentSchedulePage /></ProtectedRoute>} />
       <Route path="/student/computers" element={<ProtectedRoute role="student"><ComputerLookupPage /></ProtectedRoute>} />
       <Route path="/student/incidents" element={<ProtectedRoute role="student"><StudentIncidentPage /></ProtectedRoute>} />
+      <Route path="/student/my-incidents" element={<ProtectedRoute role="student"><MyIncidentReportsPage role="student" /></ProtectedRoute>} />
       <Route path="/student/attendance" element={<ProtectedRoute role="student"><StudentAttendancePage /></ProtectedRoute>} />
       <Route path="/student/attendance/history" element={<ProtectedRoute role="student"><Navigate to="/student/attendance" replace /></ProtectedRoute>} />
       <Route path="/student/attendance/history/:classCode" element={<ProtectedRoute role="student"><StudentAttendanceClassHistoryPage /></ProtectedRoute>} />
