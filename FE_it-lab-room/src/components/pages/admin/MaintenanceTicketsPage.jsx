@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Search, Wrench } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import AppShell from "../../common/AppShell";
 import SectionCard from "../../common/SectionCard";
 import DataTable from "../../common/DataTable";
 import Pagination from "../../common/Pagination";
+import Pagination from "../../common/Pagination";
 import { Field, SelectInput, TextInput } from "./adminFormControls";
+import { getMaintenanceTickets, createMaintenanceTicket } from "../../../services/maintenanceTicket.service";
+import { getIncidentReports } from "../../../services/incidentReport.service";
+import { getUsersFromApi } from "../../../services/user.service";
+import { TICKET_STATUS_LABELS } from "../../../constants/incident.constant";
 import { getMaintenanceTickets, createMaintenanceTicket } from "../../../services/maintenanceTicket.service";
 import { getIncidentReports } from "../../../services/incidentReport.service";
 import { getUsersFromApi } from "../../../services/user.service";
@@ -15,7 +22,17 @@ export default function MaintenanceTicketsPage() {
   const location = useLocation();
   const [tickets, setTickets] = useState([]);
   const [pagination, setPagination] = useState({ current_page: 1, last_page: 1, total: 0 });
+  const location = useLocation();
+  const [tickets, setTickets] = useState([]);
+  const [pagination, setPagination] = useState({ current_page: 1, last_page: 1, total: 0 });
   const [searchKeyword, setSearchKeyword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const debounceRef = useRef(null);
+
+  // Dữ liệu cho form tạo phiếu
+  const [confirmedReports, setConfirmedReports] = useState([]);
+  const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const debounceRef = useRef(null);
@@ -121,11 +138,16 @@ export default function MaintenanceTicketsPage() {
       <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
         <SectionCard title="Tạo phiếu bảo trì">
           <form onSubmit={handleSubmit} className="grid gap-4">
+          <form onSubmit={handleSubmit} className="grid gap-4">
             <Field label="Báo cáo sự cố">
               <SelectInput value={ticketForm.ma_bao_cao_su_co} onChange={(val) => setTicketForm({ ...ticketForm, ma_bao_cao_su_co: val })}>
                 <option value="">Chọn báo cáo...</option>
                 {confirmedReports.map((report) => (
+              <SelectInput value={ticketForm.ma_bao_cao_su_co} onChange={(val) => setTicketForm({ ...ticketForm, ma_bao_cao_su_co: val })}>
+                <option value="">Chọn báo cáo...</option>
+                {confirmedReports.map((report) => (
                   <option key={report.id} value={report.id}>
+                    #{report.id} - {report.tieu_de}
                     #{report.id} - {report.tieu_de}
                   </option>
                 ))}
@@ -174,11 +196,41 @@ export default function MaintenanceTicketsPage() {
                 value={searchKeyword}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder="Tìm phiếu bảo trì..."
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Tìm phiếu bảo trì..."
                 className="w-full min-w-[240px] rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 sm:w-72"
               />
             </div>
           }
         >
+          <DataTable
+            columns={[
+              { key: "id", title: "ID phiếu" },
+              {
+                key: "bao_cao_su_co",
+                title: "Báo cáo",
+                render: (val) => val ? `#${val.id} - ${val.tieu_de}` : "—",
+              },
+              {
+                key: "nguoi_phu_trach",
+                title: "Phụ trách",
+                render: (val) => val?.ho_ten || "—",
+              },
+              { key: "loai_bao_tri", title: "Loại bảo trì" },
+              { key: "ngay_bat_dau", title: "Bắt đầu" },
+              { key: "ngay_ket_thuc", title: "Kết thúc" },
+              { key: "cach_xu_ly", title: "Cách xử lý" },
+              { key: "chi_phi", title: "Chi phí" },
+              { key: "trang_thai", title: "Trạng thái", isStatus: true },
+            ]}
+            data={tickets}
+            emptyText={loading ? "Đang tải..." : "Chưa có phiếu bảo trì nào"}
+          />
+          <Pagination
+            currentPage={pagination.current_page}
+            lastPage={pagination.last_page}
+            onPageChange={(page) => fetchTickets({ page })}
+          />
           <DataTable
             columns={[
               { key: "id", title: "ID phiếu" },
