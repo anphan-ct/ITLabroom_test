@@ -85,6 +85,30 @@ class UserController extends Controller
     }
 
     /**
+     * Lấy danh sách vai trò cho form và dropdown.
+     */
+    public function getRoles(): JsonResponse
+    {
+        try {
+            $roles = \App\Models\Role::select(['id', 'ten_vai_tro'])->orderBy('id')->get();
+            return response()->json([
+                'status' => true,
+                'message' => 'Lấy danh sách vai trò thành công',
+                'error_code' => 200,
+                'data' => $roles,
+            ], 200);
+        } catch (Throwable $e) {
+            Log::error('UserController@getRoles: ' . $e->getMessage());
+            return response()->json([
+                'status' => false,
+                'message' => 'Hiện tại không thể xử lý yêu cầu của bạn',
+                'error_code' => 500,
+                'data' => '',
+            ], 500);
+        }
+    }
+
+    /**
      * Lấy chi tiết 1 người dùng theo ID, eager load đầy đủ quan hệ.
      */
     public function show(User $user): JsonResponse
@@ -428,6 +452,7 @@ class UserController extends Controller
             // Cache mapping
             $classes = \App\Models\SchoolClass::pluck('id', 'ma_lop')->toArray();
             $departments = \App\Models\Department::pluck('id', 'ma_phong_ban')->toArray();
+            $roleMap = \App\Models\Role::pluck('id', 'ten_vai_tro')->toArray();
 
             foreach ($usersData as $index => $row) {
                 $rowNum = $index + 2; // Dòng dữ liệu thật thường bắt đầu từ dòng 2 (sau header)
@@ -435,8 +460,8 @@ class UserController extends Controller
                     DB::beginTransaction();
 
                     $roleName = $row['role'] ?? '';
-                    $roleMap = ['Admin' => 1, 'Sinh viên' => 2, 'Giảng viên' => 3];
                     $roleId = $roleMap[$roleName] ?? null;
+                    $roleSlug = $roleName; // Dùng trực tiếp do đã được validate
 
                     if (!$roleId) {
                         throw new \Exception("Vai trò không hợp lệ: '{$roleName}'");
@@ -444,7 +469,7 @@ class UserController extends Controller
 
                     // Map ma_lop cho Sinh viên
                     $maLop = null;
-                    if ($roleId === 2) {
+                    if ($roleSlug === 'student') {
                         $classCode = $row['classCode'] ?? '';
                         $maLop = $classes[$classCode] ?? null;
                         if (!$maLop) {
@@ -454,7 +479,7 @@ class UserController extends Controller
 
                     // Map ma_phong_ban cho Giảng viên
                     $maPhongBan = null;
-                    if ($roleId === 3) {
+                    if ($roleSlug === 'teacher') {
                         $deptCode = $row['departmentCode'] ?? '';
                         $maPhongBan = $departments[$deptCode] ?? null;
                         if (!$maPhongBan) {
@@ -470,10 +495,10 @@ class UserController extends Controller
                         'phone' => 'nullable|string|max:20',
                     ];
 
-                    if ($roleId === 2) {
+                    if ($roleSlug === 'student') {
                         $rules['code'] = 'required|string|max:50|unique:sinh_vien,ma_sinh_vien';
                         $rules['course'] = 'required|string|max:20';
-                    } elseif ($roleId === 3) {
+                    } elseif ($roleSlug === 'teacher') {
                         $rules['code'] = 'required|string|max:50|unique:giang_vien,ma_giang_vien';
                     }
 
@@ -502,14 +527,14 @@ class UserController extends Controller
                     ]);
 
                     // Tạo bản ghi phụ
-                    if ($roleId === 2) {
+                    if ($roleSlug === 'student') {
                         Student::create([
                             'ma_nguoi_dung' => $user->id,
                             'ma_sinh_vien' => strtoupper(trim($row['code'])),
                             'ma_lop' => $maLop,
                             'nien_khoa' => trim($row['course']),
                         ]);
-                    } elseif ($roleId === 3) {
+                    } elseif ($roleSlug === 'teacher') {
                         Teacher::create([
                             'ma_nguoi_dung' => $user->id,
                             'ma_giang_vien' => strtoupper(trim($row['code'])),

@@ -1,0 +1,121 @@
+<?php
+
+namespace App\Http\Controllers\admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\LoanRequest;
+use App\Models\Computer;
+use App\Models\LoanRequestDetail;
+use App\Http\Requests\LoanRequestApprovalRequest;
+use App\Enums\LoanRequestStatus;
+use App\Enums\ComputerStatus;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Throwable;
+use App\Http\Resources\LoanRequestResource;
+
+class LoanRequestController extends Controller
+{
+    public function index(Request $request)
+    {
+        try {
+            $status = $request->query('trang_thai', LoanRequestStatus::PENDING->value);
+            
+            $query = LoanRequest::with(['teacher.user', 'department', 'details.computer']);
+            
+            if ($status !== 'all') {
+                $query->where('trang_thai', $status);
+            }
+
+            $requests = $query->orderBy('created_at', 'desc')->paginate(15);
+            $requests->getCollection()->transform(function ($item) {
+                return new LoanRequestResource($item);
+            });
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Lấy danh sách phiếu mượn thành công',
+                'error_code' => 0,
+                'data' => $requests
+            ], 200);
+        } catch (Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Lỗi hệ thống: ' . $e->getMessage(),
+                'error_code' => 500,
+                'data' => null
+            ], 500);
+        }
+    }
+
+    public function approve(LoanRequestApprovalRequest $request, LoanRequest $loanRequest)
+    {
+        DB::beginTransaction();
+        try {
+            $action = $request->input('action');
+            
+            if ($action === 'reject') {
+                $loanRequest->update(['trang_thai' => LoanRequestStatus::REJECTED->value]);
+                DB::commit();
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Đã từ chối phiếu mượn',
+                    'error_code' => 0,
+                    'data' => $loanRequest
+                ], 200);
+            }
+
+            // approve
+            $computerIds = $request->input('computer_ids');
+            $conditions = $request->input('machine_conditions', []); 
+            $conditionMap = [];
+            foreach ($conditions as $cond) {
+                if (isset($cond['ma_may_tinh']) && isset($cond['tinh_trang_khi_muon'])) {
+                    $conditionMap[$cond['ma_may_tinh']] = [
+                        'tinh_trang_khi_muon' => $cond['tinh_trang_khi_muon'],
+                        'ghi_chu' => $cond['ghi_chu'] ?? null
+                    ];
+                }
+            }
+            
+            $computers = Computer::whereIn('id', $computerIds)->lockForUpdate()->get();
+            
+            foreach ($computers as $computer) {
+                if ($computer->trang_thai !== ComputerStatus::ACTIVE->value) {
+                    throw new \Exception("Máy tính {$computer->ma_may} không ở trạng thái hoạt động.");
+                }
+                
+                $computer->update(['trang_thai' => ComputerStatus::BORROWED->value]);
+                
+                $tinhTrang = $conditionMap[$computer->id]['tinh_trang_khi_muon'] ?? ComputerStatus::ACTIVE->value;
+                $ghiChu = $conditionMap[$computer->id]['ghi_chu'] ?? null;
+                
+                LoanRequestDetail::create([
+                    'ma_phieu_muon' => $loanRequest->id,
+                    'ma_may_tinh' => $computer->id,
+                    'tinh_trang_khi_muon' => $tinhTrang,
+                    'ghi_chu' => $ghiChu,
+                ]);
+            }
+
+            $loanRequest->update(['trang_thai' => LoanRequestStatus::APPROVED->value]);
+            
+            DB::commit();
+            return response()->json([
+                'status' => true,
+                'message' => 'Đã duyệt phiếu mượn và phân bổ máy thành công',
+                'error_code' => 0,
+                'data' => $loanRequest->load('details.computer')
+            ], 200);
+            
+        } catch (Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => false,
+                'message' => 'Lỗi hệ thống: ' . $e->getMessage(),
+                'error_code' => 500,
+                'data' => null
+            ], 500);
+        }
+    }
+}

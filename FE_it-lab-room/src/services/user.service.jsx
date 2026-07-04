@@ -21,6 +21,15 @@ export function getUsersFromApi(params = {}) {
 }
 
 /**
+ * Lấy danh sách vai trò
+ */
+export function getRolesFromApi() {
+  return fetcher(CONST_APIS.USERS.ROLES, {
+    method: CONST_METHODS.GET,
+  });
+}
+
+/**
  * Lấy chi tiết 1 người dùng theo ID.
  */
 export function getUserFromApi(id) {
