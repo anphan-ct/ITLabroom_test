@@ -28,16 +28,21 @@ class UserController extends Controller
             $query = User::query()
                 ->select(['id', 'ma_vai_tro', 'ho_ten', 'email', 'so_dien_thoai', 'gioi_tinh', 'ngay_sinh', 'trang_thai'])
                 ->with([
-                    'role:id,ten_vai_tro',
+                    'role:id,ten_vai_tro,mo_ta',
                     'student:id,ma_nguoi_dung,ma_sinh_vien,ma_lop,nien_khoa',
                     'student.class:id,ma_lop',
                     'teacher:id,ma_nguoi_dung,ma_giang_vien,ma_phong_ban',
                     'teacher.department:id,ma_phong_ban,ten_phong_ban',
                 ]);
 
-            // Lọc theo vai trò (ma_vai_tro: 1=admin, 2=student, 3=teacher)
+            // Lọc theo vai trò
             if ($request->filled('role')) {
                 $query->where('ma_vai_tro', (int) $request->input('role'));
+            }
+
+            // Lọc theo trạng thái
+            if ($request->filled('status')) {
+                $query->where('trang_thai', (int) $request->input('status'));
             }
 
             // Tìm kiếm theo tên, email, mã sinh viên, mã giảng viên
