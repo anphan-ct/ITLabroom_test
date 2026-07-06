@@ -152,7 +152,7 @@ function AllocationModal({ request, rooms, onClose, onSubmit }) {
                       />
                     </td>
                     <td className="p-3 font-medium text-slate-700">{c.ma_may}</td>
-                    <td className="p-3">{c.room?.ten_phong || c.ma_phong}</td>
+                    <td className="p-3">{c.phong?.ten_phong || c.ma_phong}</td>
                     <td className="p-3">
                       {isSelected ? (
                         <select
@@ -377,7 +377,7 @@ export default function LoanRequestsTab() {
                     </div>
                   );
                 }
-                
+
                 if (request.trang_thai === "approved") {
                   return (
                     <button
