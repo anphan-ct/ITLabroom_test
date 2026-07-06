@@ -20,8 +20,10 @@ import MaintenanceTicketsPage from "./components/pages/admin/MaintenanceTicketsP
 import SchedulesPage from "./components/pages/admin/SchedulesPage.jsx";
 import ScheduleFormPage from "./components/pages/admin/ScheduleFormPage.jsx";
 import LoanRequestsManagePage from "./components/pages/teacher/LoanRequestsManagePage.jsx";
-import LoanApprovalPage from "./components/pages/admin/LoanApprovalPage.jsx";
-import ReturnApprovalPage from "./components/pages/admin/ReturnApprovalPage.jsx";
+import LoanReturnLayoutPage from "./components/pages/admin/LoanReturnLayoutPage.jsx";
+import LoanRequestsTab from "./components/pages/admin/LoanRequestsTab.jsx";
+import ReturnRequestsTab from "./components/pages/admin/ReturnRequestsTab.jsx";
+import RoomBookingsManagePage from "./components/pages/admin/RoomBookingsManagePage.jsx";
 import ComputerImportDetailPage from "./components/pages/admin/ComputerImportDetailPage.jsx";
 import ComputerImportsPage from "./components/pages/admin/ComputerImportsPage.jsx";
 import ComputerReturnDetailsPage from "./components/pages/admin/ComputerReturnDetailsPage.jsx";
@@ -35,7 +37,6 @@ import AcademicYearFormPage from "./components/pages/admin/AcademicYearFormPage.
 import AcademicYearWeeksPage from "./components/pages/admin/AcademicYearWeeksPage.jsx";
 import LoanDetailsPage from "./components/pages/admin/LoanDetailsPage.jsx";
 import RepairLogsPage from "./components/pages/admin/RepairLogsPage.jsx";
-import RoomBookingsManagePage from "./components/pages/admin/RoomBookingsManagePage.jsx";
 
 import TeacherSchedulePage from "./components/pages/teacher/TeacherSchedulePage.jsx";
 import AttendancePage from "./components/pages/teacher/AttendancePage.jsx";
@@ -90,15 +91,22 @@ export default function App() {
       <Route path="/admin/schedules/:scheduleId/edit" element={<ProtectedRoute role="admin"><ScheduleFormPage /></ProtectedRoute>} />
       <Route path="/admin/computer-imports" element={<ProtectedRoute role="admin"><ComputerImportsPage /></ProtectedRoute>} />
       <Route path="/admin/computer-imports/:importId" element={<ProtectedRoute role="admin"><ComputerImportDetailPage /></ProtectedRoute>} />
-      <Route path="/admin/loan-approvals" element={<ProtectedRoute role="admin"><LoanApprovalPage /></ProtectedRoute>} />
-      <Route path="/admin/return-approvals" element={<ProtectedRoute role="admin"><ReturnApprovalPage /></ProtectedRoute>} />
+      <Route
+        path="/admin/loan-approvals"
+        element={<ProtectedRoute role="admin"><Navigate to="/admin/loan-return/loans" replace /></ProtectedRoute>}
+      />
+      <Route
+        path="/admin/return-approvals"
+        element={<ProtectedRoute role="admin"><Navigate to="/admin/loan-return/returns" replace /></ProtectedRoute>}
+      />
+      <Route path="/admin/loan-return" element={<ProtectedRoute role="admin"><LoanReturnLayoutPage /></ProtectedRoute>}>
+        <Route index element={<Navigate to="loans" replace />} />
+        <Route path="loans" element={<LoanRequestsTab />} />
+        <Route path="returns" element={<ReturnRequestsTab />} />
+      </Route>
       <Route
         path="/admin/room-bookings"
-        element={
-          <ProtectedRoute role="admin">
-            <RoomBookingsManagePage />
-          </ProtectedRoute>
-        }
+        element={<ProtectedRoute role="admin"><RoomBookingsManagePage /></ProtectedRoute>}
       />
       <Route path="/admin/course-sections" element={<ProtectedRoute role="admin"><CourseSectionsPage /></ProtectedRoute>} />
       <Route path="/admin/course-sections/create" element={<ProtectedRoute role="admin"><CourseSectionFormPage /></ProtectedRoute>} />

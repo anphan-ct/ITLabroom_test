@@ -10,55 +10,23 @@ import {
   resetUserPasswordFromApi,
   getDepartmentsFromApi,
   deleteUserFromApi,
+  getRolesFromApi,
 } from "../../../services/user.service";
 
-// Bộ lọc vai trò hiển thị bên trong trang
-const roleTabs = [
-  { key: "all", label: "Tất cả tài khoản", roleId: null },
-  { key: "Admin", label: "Admin", roleId: 1 },
-  { key: "Giảng viên", label: "Giảng viên", roleId: 3 },
-  { key: "Sinh viên", label: "Sinh viên", roleId: 2 },
-];
-
-// Map vai trò ID sang tên hiển thị
-const roleNameMap = { 1: "Admin", 2: "Sinh viên", 3: "Giảng viên" };
-
-const pageConfigByRole = {
-  all: {
-    title: "Quản lý người dùng",
-    subtitle: "Danh sách admin, giảng viên, sinh viên",
-    sectionTitle: "Danh sách người dùng",
-    codeTitle: "Mã",
-    searchPlaceholder: "Tìm theo tên, email hoặc mã",
-  },
-  Admin: {
-    title: "Quản lý người dùng",
-    subtitle: "Danh sách tài khoản quản trị viên",
-    sectionTitle: "Danh sách Admin",
-    codeTitle: "Mã người dùng",
-    searchPlaceholder: "Tìm theo tên hoặc email",
-  },
-  "Giảng viên": {
-    title: "Quản lý người dùng",
-    subtitle: "Danh sách tài khoản giảng viên",
-    sectionTitle: "Danh sách giảng viên",
-    codeTitle: "MSGV",
-    searchPlaceholder: "Tìm theo tên hoặc MSGV",
-  },
-  "Sinh viên": {
-    title: "Quản lý người dùng",
-    subtitle: "Danh sách tài khoản sinh viên",
-    sectionTitle: "Danh sách sinh viên",
-    codeTitle: "MSSV",
-    searchPlaceholder: "Tìm theo tên hoặc MSSV",
-  },
-};
-
 export default function UsersPage() {
-  const [roleFilter, setRoleFilter] = useState("all");
+  const [roles, setRoles] = useState([]);
+  const [selectedRoleId, setSelectedRoleId] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Fetch danh sách roles
+  useEffect(() => {
+    getRolesFromApi().then(res => {
+      if (res?.data) setRoles(res.data);
+    });
+  }, []);
 
   // Dữ liệu từ API
   const [users, setUsers] = useState([]);
@@ -70,10 +38,28 @@ export default function UsersPage() {
   // Thông báo kết quả thao tác
   const [toast, setToast] = useState(null);
 
-  const config = pageConfigByRole[roleFilter];
-  const isStudentTab = roleFilter === "Sinh viên";
-  const isTeacherTab = roleFilter === "Giảng viên";
-  const showCodeColumn = roleFilter !== "all" && roleFilter !== "Admin";
+  const selectedRole = roles.find(r => r.id === selectedRoleId) || null;
+  const selectedSlug = selectedRole?.ten_vai_tro || null;
+
+  const isStudentTab = selectedSlug === 'student';
+  const isTeacherTab = selectedSlug === 'teacher';
+  const showCodeColumn = selectedSlug !== null && selectedSlug !== 'admin';
+
+  const config = {
+    title: "Quản lý người dùng",
+    subtitle: selectedRole
+      ? `Danh sách ${selectedRole.mo_ta?.toLowerCase() || selectedRole.ten_vai_tro}`
+      : "Danh sách admin, giảng viên, sinh viên",
+    sectionTitle: selectedRole
+      ? `Danh sách ${selectedRole.mo_ta || selectedRole.ten_vai_tro}`
+      : "Danh sách người dùng",
+    codeTitle: selectedSlug === 'student' ? "MSSV"
+              : selectedSlug === 'teacher' ? "MSGV"
+              : "Mã",
+    searchPlaceholder: selectedSlug === 'student' ? "Tìm theo tên hoặc MSSV"
+                     : selectedSlug === 'teacher' ? "Tìm theo tên hoặc MSGV"
+                     : "Tìm theo tên, email hoặc mã",
+  };
 
   // Debounce tìm kiếm 400ms để tránh gọi API quá nhiều khi gõ liên tục
   useEffect(() => {
@@ -88,12 +74,14 @@ export default function UsersPage() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const currentTab = roleTabs.find((tab) => tab.key === roleFilter);
       const params = { page: currentPage };
 
-      // Truyền roleId để filter trên backend
-      if (currentTab?.roleId) {
-        params.role = currentTab.roleId;
+      if (selectedRoleId) {
+        params.role = selectedRoleId;
+      }
+
+      if (statusFilter !== "") {
+        params.status = statusFilter;
       }
 
       // Truyền keyword tìm kiếm
@@ -113,7 +101,7 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [roleFilter, currentPage, debouncedSearch]);
+  }, [selectedRoleId, statusFilter, currentPage, debouncedSearch]);
 
   // Fetch danh sách phòng ban cho bộ lọc (1 lần duy nhất)
   useEffect(() => {
@@ -138,12 +126,16 @@ export default function UsersPage() {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  // Đổi tab vai trò → reset trang và từ khóa
-  const handleSelectRoleTab = (key) => {
-    setRoleFilter(key);
+  // Đổi vai trò → reset trang
+  const handleRoleChange = (roleId) => {
+    setSelectedRoleId(roleId);
     setCurrentPage(1);
-    setSearchKeyword("");
-    setDebouncedSearch("");
+  };
+
+  // Đổi trạng thái → reset trang
+  const handleStatusChange = (status) => {
+    setStatusFilter(status);
+    setCurrentPage(1);
   };
 
   // Xử lý khóa/mở khóa tài khoản
@@ -219,7 +211,7 @@ export default function UsersPage() {
   };
 
   // Lấy tên vai trò hiển thị
-  const getRoleName = (user) => roleNameMap[user.role_id] || user.role?.role_name || "-";
+  const getRoleName = (user) => user.role?.role_label || user.role?.role_name || "-";
 
   // Lấy tên lớp (chỉ sinh viên)
   const getClassName = (user) => user.student?.class_code || "-";
@@ -238,7 +230,7 @@ export default function UsersPage() {
     { key: "full_name", title: "Họ tên" },
     { key: "email", title: "Email" },
     { key: "phone", title: "Số điện thoại", render: (value) => value || "-" },
-    ...(roleFilter === "all" ? [{ key: "role_name", title: "Vai trò", render: (_, user) => getRoleName(user) }] : []),
+    ...(selectedRoleId === null ? [{ key: "role_name", title: "Vai trò", render: (_, user) => getRoleName(user) }] : []),
     ...(isStudentTab ? [{ key: "class_name", title: "Lớp", render: (_, user) => getClassName(user) }] : []),
     ...(isStudentTab ? [{ key: "course_year", title: "Niên khóa", render: (_, user) => getCourseYear(user) }] : []),
     ...(isTeacherTab ? [{ key: "department_name", title: "Phòng ban", render: (_, user) => getDepartmentName(user) }] : []),
@@ -304,8 +296,9 @@ export default function UsersPage() {
   ];
 
   // Khi bấm "Thêm", truyền vai trò đang lọc làm vai trò mặc định cho form
-  const addPath =
-    roleFilter === "all" ? "/admin/users/create" : `/admin/users/create?role=${encodeURIComponent(roleFilter)}`;
+  const addPath = selectedRole
+    ? `/admin/users/create?role=${selectedRole.ten_vai_tro}`
+    : "/admin/users/create";
 
   return (
     <AppShell role="admin" title={config.title} subtitle={config.subtitle}>
@@ -321,21 +314,32 @@ export default function UsersPage() {
         </div>
       )}
 
-      {/* Bộ lọc vai trò */}
-      <div className="mb-5 flex flex-wrap gap-2">
-        {roleTabs.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => handleSelectRoleTab(tab.key)}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${roleFilter === tab.key
-              ? "bg-blue-600 text-white shadow-sm"
-              : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-              }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Bộ lọc */}
+      <div className="mb-5 flex flex-wrap gap-4">
+        {/* Dropdown lọc vai trò */}
+        <select
+          value={selectedRoleId ?? ""}
+          onChange={e => handleRoleChange(e.target.value ? Number(e.target.value) : null)}
+          className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 outline-none transition hover:bg-slate-50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 min-w-[200px]"
+        >
+          <option value="">Tất cả vai trò</option>
+          {roles.map(r => (
+            <option key={r.id} value={r.id}>
+              {r.mo_ta || r.ten_vai_tro}
+            </option>
+          ))}
+        </select>
+
+        {/* Dropdown lọc trạng thái */}
+        <select
+          value={statusFilter}
+          onChange={e => handleStatusChange(e.target.value)}
+          className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 outline-none transition hover:bg-slate-50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 min-w-[180px]"
+        >
+          <option value="">Tất cả trạng thái</option>
+          <option value="1">Hoạt động</option>
+          <option value="0">Tạm khóa</option>
+        </select>
       </div>
 
       <SectionCard

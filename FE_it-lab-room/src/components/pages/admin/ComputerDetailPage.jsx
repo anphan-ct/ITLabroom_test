@@ -15,6 +15,7 @@ function getStatusLabel(status) {
     active: "Hoạt động",
     broken: "Hỏng",
     maintenance: "Bảo trì",
+    borrowed: "Đang mượn",
   };
 
   return statusLabels[status] || status || "";

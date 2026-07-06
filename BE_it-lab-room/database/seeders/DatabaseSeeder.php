@@ -39,6 +39,13 @@ class DatabaseSeeder extends Seeder
             ['mo_ta' => 'Giảng viên']
         );
 
+        Role::query()->updateOrCreate(
+            ['ten_vai_tro' => 'technician'],
+            ['mo_ta' => 'Kỹ thuật viên']
+        );
+
+        $this->call(DepartmentSeeder::class);
+
         $admin = User::query()->updateOrCreate(
             ['email' => 'admin@itlab.test'],
             [

@@ -47,3 +47,28 @@ export function deleteRoomFromApi(id) {
     method: CONST_METHODS.DELETE,
   });
 }
+
+/**
+ * Lấy danh sách phòng máy theo role (admin/teacher/student).
+ * Admin dùng ROOMS, teacher dùng TEACHER_ROOMS, student dùng STUDENT_ROOMS.
+ */
+export function getRoomsForRole(role) {
+  const apiMap = {
+    admin: CONST_APIS.ROOMS.INDEX,
+    teacher: CONST_APIS.TEACHER_ROOMS.INDEX,
+    student: CONST_APIS.STUDENT_ROOMS.INDEX,
+  };
+  return fetcher(apiMap[role], { method: CONST_METHODS.GET });
+}
+
+/**
+ * Lấy máy tính + thiết bị theo phòng, chọn endpoint theo role.
+ */
+export function getRoomComputersForRole(role, id) {
+  const apiMap = {
+    admin: CONST_APIS.ROOMS.COMPUTERS,
+    teacher: CONST_APIS.TEACHER_ROOMS.COMPUTERS,
+    student: CONST_APIS.STUDENT_ROOMS.COMPUTERS,
+  };
+  return fetcher(apiMap[role](id), { method: CONST_METHODS.GET });
+}

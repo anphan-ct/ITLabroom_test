@@ -15,6 +15,7 @@ function mapComputer(computer) {
     active: "Hoạt động",
     broken: "Hỏng",
     maintenance: "Bảo trì",
+    borrowed: "Đang mượn",
   };
 
   return {

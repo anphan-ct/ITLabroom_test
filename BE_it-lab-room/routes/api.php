@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\admin\AcademicYearController;
 use App\Http\Controllers\admin\AuthController as AdminAuthController;
-use App\Http\Controllers\admin\ClassController;
 use App\Http\Controllers\admin\ClassStudentController;
 use App\Http\Controllers\admin\ComputerController;
 use App\Http\Controllers\admin\ComputerImportController;
@@ -11,37 +10,51 @@ use App\Http\Controllers\admin\ComputerTransferController;
 use App\Http\Controllers\admin\CourseSectionController;
 use App\Http\Controllers\admin\CourseSectionStudentController;
 use App\Http\Controllers\admin\DepartmentController;
+use App\Http\Controllers\admin\IncidentReportController as AdminIncidentReportController;
+use App\Http\Controllers\admin\LoanRequestController as AdminLoanRequestController;
+use App\Http\Controllers\admin\MaintenanceTicketController as AdminMaintenanceTicketController;
+use App\Http\Controllers\admin\RepairLogController as AdminRepairLogController;
+use App\Http\Controllers\admin\ReturnRequestController as AdminReturnRequestController;
 use App\Http\Controllers\admin\RoomBookingController as AdminRoomBookingController;
 use App\Http\Controllers\admin\RoomController;
 use App\Http\Controllers\admin\SchoolClassController;
 use App\Http\Controllers\admin\SubjectController;
 use App\Http\Controllers\admin\UserController;
 use App\Http\Controllers\common\AuthController as CommonAuthController;
-use App\Http\Controllers\student\AuthController as StudentAuthController;
+use App\Http\Controllers\common\IncidentReportController as CommonIncidentReportController;
 use App\Http\Controllers\student\AttendanceController as StudentAttendanceController;
+use App\Http\Controllers\student\AuthController as StudentAuthController;
 use App\Http\Controllers\student\ComputerLabScheduleController as StudentComputerLabScheduleController;
 use App\Http\Controllers\teacher\AttendanceController as TeacherAttendanceController;
 use App\Http\Controllers\teacher\AuthController as TeacherAuthController;
 use App\Http\Controllers\teacher\ComputerLabScheduleController as TeacherComputerLabScheduleController;
+use App\Http\Controllers\teacher\LoanRequestController as TeacherLoanRequestController;
+use App\Http\Controllers\teacher\ReturnRequestController as TeacherReturnRequestController;
 use App\Http\Controllers\teacher\RoomBookingController as TeacherRoomBookingController;
 use Illuminate\Support\Facades\Route;
 
 // Nhóm API đăng nhập chuẩn RESTful cho admin, sinh viên và giảng viên.
 Route::prefix('auth')->group(function () {
-    // Endpoint chung cho giao diện đăng nhập gộp
+    // Endpoint chung cho giao diện đăng nhập gộp.
     Route::post('/login', [CommonAuthController::class, 'login']);
     Route::post('/google-login', [CommonAuthController::class, 'googleLogin']);
-    // Login
+
+    // Login.
     Route::post('/admin/login', [AdminAuthController::class, 'login']);
     Route::post('/students/login', [StudentAuthController::class, 'login']);
     Route::post('/teachers/login', [TeacherAuthController::class, 'login']);
-    // Google login
+
+    // Google login.
     Route::post('/admin/google-login', [AdminAuthController::class, 'googleLogin']);
     Route::post('/students/google-login', [StudentAuthController::class, 'googleLogin']);
     Route::post('/teachers/google-login', [TeacherAuthController::class, 'googleLogin']);
 });
 
-// Lịch giảng dạy và lịch học được lọc theo tài khoản đăng nhập.
+// API tra cứu thông tin máy tính sau khi app mobile quét mã QR.
+Route::get('/scan/{qrCode}', [ComputerController::class, 'showByQrCode']);
+Route::middleware('auth:sanctum')->get('/computers/qr/{qrCode}', [ComputerController::class, 'showByQrCode']);
+
+// Lịch giảng dạy và lịch học được lọc theo tài khoản đăng nhập dành cho giảng viên.
 Route::middleware(['auth:sanctum', 'abilities:teacher'])->group(function () {
     Route::get('/teacher/computer-lab-schedules', [TeacherComputerLabScheduleController::class, 'index']);
     Route::get('/teacher/attendance/schedules/{computerLabSchedule}', [TeacherAttendanceController::class, 'showBySchedule']);
@@ -49,41 +62,56 @@ Route::middleware(['auth:sanctum', 'abilities:teacher'])->group(function () {
     Route::get('/teacher/room-bookings/availability', [TeacherRoomBookingController::class, 'availability']);
     Route::post('/teacher/room-bookings', [TeacherRoomBookingController::class, 'store']);
     Route::patch('/teacher/room-bookings/{id}/cancel', [TeacherRoomBookingController::class, 'cancel']);
-});
-// Nhóm API quản lý tài khoản người dùng.
-Route::middleware('auth:sanctum')->prefix('admin/users')->group(function () {
-    Route::get('/', [UserController::class, 'index']);
-    Route::post('/', [UserController::class, 'store']);
-    Route::post('/import', [UserController::class, 'import']);
-    Route::get('/{user}', [UserController::class, 'show']);
-    Route::put('/{user}', [UserController::class, 'update']);
-    Route::patch('/{user}/toggle-status', [UserController::class, 'toggleStatus']);
-    Route::patch('/{user}/reset-password', [UserController::class, 'resetPassword']);
-    Route::delete('/{user}', [UserController::class, 'destroy']);
-});
 
-// API lấy danh sách phòng ban cho dropdown.
-Route::middleware('auth:sanctum')->get('admin/departments', [DepartmentController::class, 'index']);
+    // Báo cáo sự cố của giảng viên.
+    Route::get('/teacher/incident-reports', [CommonIncidentReportController::class, 'index']);
+    Route::post('/teacher/incident-reports', [CommonIncidentReportController::class, 'store']);
 
-// API lấy danh sách lớp học cho dropdown.
-Route::middleware('auth:sanctum')->get('admin/classes', [ClassController::class, 'index']);
+    // Phòng máy và máy tính/thiết bị chỉ đọc, dùng cho form báo cáo sự cố.
+    Route::get('/teacher/rooms', [RoomController::class, 'index']);
+    Route::get('/teacher/rooms/{room}/computers', [RoomController::class, 'computers']);
 
-// Nhóm API quản trị lớp học, dùng để xem sinh viên theo từng lớp.
-Route::prefix('admin/classes')->group(function () {
-    Route::get('/{class}/students', [ClassStudentController::class, 'index']);
+    // Mượn / trả máy của giảng viên.
+    Route::get('/teacher/loan-requests', [TeacherLoanRequestController::class, 'index']);
+    Route::post('/teacher/loan-requests', [TeacherLoanRequestController::class, 'store']);
+    Route::get('/teacher/return-requests', [TeacherReturnRequestController::class, 'index']);
+    Route::post('/teacher/return-requests', [TeacherReturnRequestController::class, 'store']);
 });
 
+// Nhóm API dành cho sinh viên.
 Route::middleware(['auth:sanctum', 'abilities:student'])->group(function () {
     Route::get('/student/computer-lab-schedules', [StudentComputerLabScheduleController::class, 'index']);
     Route::get('/student/attendance/schedules/{computerLabSchedule}', [StudentAttendanceController::class, 'showBySchedule']);
     Route::post('/student/attendance/schedules/{computerLabSchedule}/check-in', [StudentAttendanceController::class, 'checkIn']);
+
+    // Báo cáo sự cố của sinh viên.
+    Route::get('/student/incident-reports', [CommonIncidentReportController::class, 'index']);
+    Route::post('/student/incident-reports', [CommonIncidentReportController::class, 'store']);
+
+    // Phòng máy và máy tính/thiết bị chỉ đọc, dùng cho form báo cáo sự cố.
+    Route::get('/student/rooms', [RoomController::class, 'index']);
+    Route::get('/student/rooms/{room}/computers', [RoomController::class, 'computers']);
 });
 
-// API tra cứu thông tin máy tính sau khi app mobile quét mã QR.
-Route::get('/scan/{qrCode}', [ComputerController::class, 'showByQrCode']);
-Route::middleware('auth:sanctum')->get('/computers/qr/{qrCode}', [ComputerController::class, 'showByQrCode']);
-
+// Nhóm API dành cho admin.
 Route::middleware(['auth:sanctum', 'abilities:admin'])->group(function () {
+    // Nhóm API quản lý tài khoản người dùng.
+    Route::prefix('admin/users')->group(function () {
+        Route::get('/', [UserController::class, 'index']);
+        Route::post('/', [UserController::class, 'store']);
+        Route::post('/import', [UserController::class, 'import']);
+        Route::get('/roles', [UserController::class, 'getRoles']);
+        Route::get('/{user}', [UserController::class, 'show']);
+        Route::put('/{user}', [UserController::class, 'update']);
+        Route::patch('/{user}/toggle-status', [UserController::class, 'toggleStatus']);
+        Route::patch('/{user}/reset-password', [UserController::class, 'resetPassword']);
+        Route::delete('/{user}', [UserController::class, 'destroy']);
+    });
+
+    // API lấy danh sách phòng ban cho dropdown.
+    Route::get('admin/departments', [DepartmentController::class, 'index']);
+
+    // Nhóm API duyệt yêu cầu đặt phòng.
     Route::prefix('admin/room-bookings')->group(function () {
         Route::get('/', [AdminRoomBookingController::class, 'index']);
         Route::patch('/{roomBooking}', [AdminRoomBookingController::class, 'update']);
@@ -104,7 +132,7 @@ Route::middleware(['auth:sanctum', 'abilities:admin'])->group(function () {
         Route::delete('/{class}', [SchoolClassController::class, 'destroy']);
     });
 
-    // Nhóm API quản trị lớp học phần và phân công giảng viên.
+    // Nhóm API quản trị năm học.
     Route::prefix('admin/academic-years')->group(function () {
         Route::get('/', [AcademicYearController::class, 'index']);
         Route::post('/', [AcademicYearController::class, 'store']);
@@ -175,10 +203,41 @@ Route::middleware(['auth:sanctum', 'abilities:admin'])->group(function () {
         Route::get('/code', [ComputerImportController::class, 'generateCode']);
         Route::get('/{computerImport}', [ComputerImportController::class, 'show']);
     });
-});
 
-// Nhóm API điều chuyển máy tính giữa các phòng.
-Route::middleware('auth:sanctum')->prefix('admin/computer-transfers')->group(function () {
-    Route::get('/', [ComputerTransferController::class, 'index']);
-    Route::post('/', [ComputerTransferController::class, 'store']);
+    // Nhóm API điều chuyển máy tính giữa các phòng.
+    Route::prefix('admin/computer-transfers')->group(function () {
+        Route::get('/', [ComputerTransferController::class, 'index']);
+        Route::post('/', [ComputerTransferController::class, 'store']);
+    });
+
+    // Nhóm API quản lý báo cáo sự cố.
+    Route::prefix('admin/incident-reports')->group(function () {
+        Route::get('/', [AdminIncidentReportController::class, 'index']);
+        Route::patch('/{incidentReport}/status', [AdminIncidentReportController::class, 'updateStatus']);
+    });
+
+    // Nhóm API quản lý phiếu bảo trì.
+    Route::prefix('admin/maintenance-tickets')->group(function () {
+        Route::get('/', [AdminMaintenanceTicketController::class, 'index']);
+        Route::post('/', [AdminMaintenanceTicketController::class, 'store']);
+        Route::put('/{maintenanceTicket}', [AdminMaintenanceTicketController::class, 'update']);
+    });
+
+    // Nhóm API quản lý nhật ký sửa chữa.
+    Route::prefix('admin/repair-logs')->group(function () {
+        Route::get('/', [AdminRepairLogController::class, 'index']);
+        Route::post('/', [AdminRepairLogController::class, 'store']);
+    });
+
+    // Nhóm API duyệt phiếu mượn máy.
+    Route::prefix('admin/loan-requests')->group(function () {
+        Route::get('/', [AdminLoanRequestController::class, 'index']);
+        Route::patch('/{loanRequest}/approval', [AdminLoanRequestController::class, 'approve']);
+    });
+
+    // Nhóm API xác nhận phiếu trả máy.
+    Route::prefix('admin/return-requests')->group(function () {
+        Route::get('/', [AdminReturnRequestController::class, 'index']);
+        Route::patch('/{returnRequest}/confirmation', [AdminReturnRequestController::class, 'confirm']);
+    });
 });
