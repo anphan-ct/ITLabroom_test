@@ -83,10 +83,6 @@ export default function Sidebar({
           </div>
         </div>
 
-        <div className="hidden border-b border-slate-200 px-4 py-4 md:block">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Điều hướng</p>
-          <p className="mt-1 text-sm font-semibold text-slate-900">Quản trị phòng máy</p>
-        </div>
         <nav
           ref={navRef}
           onScroll={handleNavScroll}
@@ -97,35 +93,34 @@ export default function Sidebar({
 
             if (item.children?.length) {
               const hasActiveChild = item.children.some((child) => child.to === location.pathname);
-              const isExpanded = expandedSections[item.to] || hasActiveChild;
+              const isExpanded = expandedSections[item.to] ?? hasActiveChild;
+              const isParentActive = location.pathname === item.to || hasActiveChild;
 
               return (
                 <div key={item.to} className="group space-y-1">
-                  <div className="flex items-center justify-between">
-                    <NavLink
-                      to={item.to}
-                      onClick={onClose}
-                      className={`flex-1 ${linkClassName({ isActive: location.pathname === item.to })}`}
-                    >
-                      <Icon size={18} />
-                      <span>{item.label}</span>
-                    </NavLink>
+                  <div className="flex items-center">
                     <button
                       type="button"
                       onClick={() => toggleExpanded(item.to)}
-                      className="md:hidden ml-2 p-1.5 hover:bg-slate-100 rounded-lg transition"
-                      aria-label="Toggle submenu"
+                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition ${
+                        isParentActive
+                          ? "bg-blue-50 text-[#193D87] md:bg-[#193D87] md:text-white md:shadow-sm"
+                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                      }`}
+                      aria-expanded={isExpanded}
                     >
+                      <Icon size={18} />
+                      <span className="flex-1">{item.label}</span>
                       <ChevronDown
-                        size={18}
+                        size={16}
                         className={`transition-transform ${isExpanded ? "rotate-180" : "rotate-0"}`}
                       />
                     </button>
                   </div>
 
-                  <div className={`ml-4 space-y-1 border-l border-slate-200 pl-3 md:group-hover:block md:group-focus-within:block ${
-                    isExpanded ? "block" : "hidden md:block"
-                  } ${hasActiveChild ? "md:block" : "md:hidden"}`}>
+                  <div className={`ml-4 space-y-1 border-l border-slate-200 pl-3 ${
+                    isExpanded ? "block" : "hidden"
+                  }`}>
                     {item.children.map((child) => {
                       const ChildIcon = child.icon;
 

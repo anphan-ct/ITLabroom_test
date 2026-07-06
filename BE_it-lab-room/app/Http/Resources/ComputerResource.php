@@ -28,6 +28,7 @@ class ComputerResource extends JsonResource
             'ssd' => $this->ssd,
             'trang_thai' => $this->trang_thai,
             'ghi_chu' => $this->ghi_chu,
+            'ten_phong' => $this->whenLoaded('room', fn () => $this->room?->ten_phong),
             'phong' => $this->whenLoaded('room', function () {
                 return [
                     'id' => $this->room->id,

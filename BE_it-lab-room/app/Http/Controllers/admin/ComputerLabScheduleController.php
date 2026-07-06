@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ComputerLabScheduleImportRequest;
 use App\Http\Requests\ComputerLabScheduleRequest;
+use App\Http\Resources\ComputerLabScheduleImportResource;
 use App\Http\Resources\ComputerLabScheduleResource;
 use App\Http\Resources\RoomUsageFormOptionsResource;
 use App\Models\ComputerLabSchedule;
@@ -15,6 +17,8 @@ use App\Models\Week;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Throwable;
 
 class ComputerLabScheduleController extends Controller
@@ -99,8 +103,15 @@ class ComputerLabScheduleController extends Controller
                     ->get(),
 
                 'courseSections' => CourseSection::query()
-                    ->select(['id', 'ma_lop_hoc_phan', 'ma_mon'])
-                    ->with('subject:id,ten_mon')
+                    ->select(['id', 'ma_lop_hoc_phan', 'ma_mon', 'ma_lop', 'ma_phong'])
+                    ->with([
+                        'subject:id,ten_mon',
+                        'class:id,ma_lop',
+                        'room:id,ma_phong,ten_phong',
+                        'assignments:id,ma_giang_vien,ma_lop_hoc_phan',
+                        'assignments.teacher:id,ma_nguoi_dung,ma_giang_vien',
+                        'assignments.teacher.user:id,ho_ten',
+                    ])
                     ->orderBy('ma_lop_hoc_phan')
                     ->get(),
 
@@ -175,6 +186,89 @@ class ComputerLabScheduleController extends Controller
                 'error_code' => 201,
                 'data' => new ComputerLabScheduleResource($result),
             ], 201);
+        } catch (Throwable $e) {
+            return $this->serverErrorResponse();
+        }
+    }
+
+    public function import(ComputerLabScheduleImportRequest $request)
+    {
+        try {
+            $rows = $request->validated()['schedules'];
+            $successItems = collect();
+            $errors = [];
+
+            $maps = $this->scheduleImportMaps();
+
+            foreach ($rows as $index => $row) {
+                $rowNumber = $index + 2;
+
+                try {
+                    $data = $this->normalizeImportRow($row, $maps);
+                    $validator = Validator::make(
+                        $data,
+                        $this->scheduleImportRules(),
+                        $this->scheduleImportMessages()
+                    );
+
+                    if ($validator->fails()) {
+                        throw new \RuntimeException(
+                            implode(' ', $validator->errors()->all())
+                        );
+                    }
+
+                    $data = $validator->validated();
+                    $invalidResponse = $this->validateWeekAndDay($data);
+
+                    if ($invalidResponse) {
+                        $payload = $invalidResponse->getData(true);
+                        $firstMessages = array_values(
+                            $payload['data'] ?? []
+                        )[0] ?? [];
+
+                        throw new \RuntimeException(
+                            $firstMessages[0] ?? $payload['message']
+                        );
+                    }
+
+                    $createdSchedule = DB::transaction(function () use ($data) {
+                        // Mỗi dòng được khóa và kiểm tra trùng giống luồng tạo lịch thủ công.
+                        $this->lockScheduleResources($data);
+
+                        $conflict = $this->findConflict($data);
+
+                        if ($conflict) {
+                            throw new \RuntimeException(
+                                $this->conflictMessage($conflict)
+                            );
+                        }
+
+                        return ComputerLabSchedule::create(
+                            $this->scheduleData($data)
+                        );
+                    });
+
+                    $this->loadScheduleRelations($createdSchedule);
+                    $successItems->push($createdSchedule);
+                } catch (Throwable $e) {
+                    $errors[] = "Dòng {$rowNumber}: " . $e->getMessage();
+                }
+            }
+
+            return response()->json([
+                'status' => count($errors) === 0,
+                'message' => count($errors) === 0
+                    ? 'Nhập lịch phòng máy từ CSV thành công'
+                    : 'Nhập lịch phòng máy từ CSV hoàn tất, có dòng lỗi',
+                'error_code' => count($errors) === 0 ? 201 : 207,
+                'data' => new ComputerLabScheduleImportResource([
+                    'success_count' => $successItems->count(),
+                    'error_count' => count($errors),
+                    'total' => count($rows),
+                    'errors' => $errors,
+                    'items' => $successItems,
+                ]),
+            ], count($errors) === 0 ? 201 : 207);
         } catch (Throwable $e) {
             return $this->serverErrorResponse();
         }
@@ -444,6 +538,293 @@ class ComputerLabScheduleController extends Controller
         return null;
     }
 
+    private function scheduleImportMaps(): array
+    {
+        return [
+            'rooms' => Room::query()->pluck('id', 'ma_phong')->all(),
+            'courseSections' => CourseSection::query()
+                ->select(['id', 'ma_lop_hoc_phan', 'ma_lop'])
+                ->with([
+                    'assignments' => fn ($query) => $query
+                        ->select([
+                            'id',
+                            'ma_giang_vien',
+                            'ma_lop_hoc_phan',
+                            'trang_thai',
+                        ])
+                        ->orderByRaw("trang_thai = 'active' desc")
+                        ->orderBy('id'),
+                ])
+                ->get()
+                ->keyBy('ma_lop_hoc_phan')
+                ->all(),
+        ];
+    }
+
+    private function normalizeImportRow(array $row, array $maps): array
+    {
+        $studyDate = $this->importValue($row, [
+            'ngay_hoc_cu_the',
+            'ngay_hoc',
+            'study_date',
+        ]);
+        $studyDate = $this->normalizeImportDate($studyDate);
+
+        // CSV dùng mã nghiệp vụ để dễ nhập, controller đổi sang khóa chính trước khi validate.
+        $courseSectionCode = $this->importValue($row, [
+            'ma_lop_hoc_phan',
+            'lop_hoc_phan',
+            'course_section_code',
+        ]);
+        $roomCode = $this->importValue($row, [
+            'ma_phong',
+            'phong',
+            'room_code',
+        ]);
+        $courseSection = $this->mapImportCourseSection(
+            $maps['courseSections'],
+            $courseSectionCode
+        );
+        $teacherId = $this->resolveImportTeacherId($courseSection);
+
+        return [
+            'ma_phong' => $this->mapImportCode(
+                $maps['rooms'],
+                $roomCode,
+                'Mã phòng không tồn tại hoặc đang trống.'
+            ),
+            'ma_lop' => $courseSection->ma_lop,
+            'ma_lop_hoc_phan' => $courseSection->id,
+            'ma_giang_vien' => $teacherId,
+            'ma_tuan' => $this->resolveImportWeekId($row, $studyDate),
+            'ngay_hoc_cu_the' => $studyDate,
+            'thu_trong_tuan' => $this->importValue($row, [
+                'thu_trong_tuan',
+                'thu',
+                'day',
+            ]) ?: $this->dayLabelFromDate($studyDate),
+            'so_tiet_bat_dau' => $this->importValue($row, [
+                'so_tiet_bat_dau',
+                'tiet_bat_dau',
+                'lesson_start',
+            ]),
+            'so_tiet_ket_thuc' => $this->importValue($row, [
+                'so_tiet_ket_thuc',
+                'tiet_ket_thuc',
+                'lesson_end',
+            ]),
+            'loai_lich' => $this->importValue($row, [
+                'loai_lich',
+                'schedule_type',
+            ]) ?: 'ThucHanh',
+            'ma_dat_phong_may' => null,
+            'trang_thai' => $this->importValue($row, [
+                'trang_thai',
+                'status',
+            ]) ?: 'scheduled',
+            'ghi_chu' => $this->importValue($row, [
+                'ghi_chu',
+                'note',
+            ]) ?: null,
+        ];
+    }
+
+    private function mapImportCourseSection(
+        array $map,
+        string $code
+    ): CourseSection {
+        if ($code === '' || ! array_key_exists($code, $map)) {
+            throw new \RuntimeException(
+                'Mã lớp học phần không tồn tại hoặc đang trống.'
+            );
+        }
+
+        return $map[$code];
+    }
+
+    private function resolveImportTeacherId(CourseSection $courseSection): int
+    {
+        $assignment = $courseSection->assignments->first();
+
+        if (! $assignment?->ma_giang_vien) {
+            throw new \RuntimeException(
+                'Lớp học phần chưa có giảng viên được phân công.'
+            );
+        }
+
+        return (int) $assignment->ma_giang_vien;
+    }
+
+    private function mapImportCode(
+        array $map,
+        string $code,
+        string $message
+    ): int
+    {
+        if ($code === '' || ! array_key_exists($code, $map)) {
+            throw new \RuntimeException($message);
+        }
+
+        return (int) $map[$code];
+    }
+
+    private function importValue(array $row, array $keys): string
+    {
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $row)) {
+                return trim((string) $row[$key]);
+            }
+        }
+
+        return '';
+    }
+
+    private function normalizeImportDate(string $date): string
+    {
+        if ($date === '') {
+            return '';
+        }
+
+        foreach (['Y-m-d', 'd/m/Y', 'd-m-Y'] as $format) {
+            try {
+                return Carbon::createFromFormat($format, $date)->format('Y-m-d');
+            } catch (Throwable $e) {
+                continue;
+            }
+        }
+
+        return $date;
+    }
+
+    private function resolveImportWeekId(array $row, string $studyDate): ?int
+    {
+        $weekId = $this->importValue($row, ['ma_tuan', 'week_id']);
+
+        if ($weekId !== '') {
+            return (int) $weekId;
+        }
+
+        $weekNumber = $this->importValue($row, ['so_tuan', 'week_number']);
+
+        if ($weekNumber !== '') {
+            return Week::query()
+                ->where('so_tuan', $weekNumber)
+                ->orderByDesc('id')
+                ->value('id');
+        }
+
+        if ($studyDate === '') {
+            return null;
+        }
+
+        return Week::query()
+            ->whereDate('ngay_bat_dau', '<=', $studyDate)
+            ->whereDate('ngay_ket_thuc', '>=', $studyDate)
+            ->orderByDesc('id')
+            ->value('id');
+    }
+
+    private function dayLabelFromDate(string $studyDate): string
+    {
+        if ($studyDate === '') {
+            return '';
+        }
+
+        $dayLabels = [
+            1 => 'Thứ 2',
+            2 => 'Thứ 3',
+            3 => 'Thứ 4',
+            4 => 'Thứ 5',
+            5 => 'Thứ 6',
+            6 => 'Thứ 7',
+            7 => 'Chủ nhật',
+        ];
+
+        try {
+            return $dayLabels[Carbon::parse($studyDate)->dayOfWeekIso] ?? '';
+        } catch (Throwable $e) {
+            return '';
+        }
+    }
+
+    private function scheduleImportRules(): array
+    {
+        return [
+            'ma_phong' => ['required', 'integer', 'exists:phong_may,id'],
+            'ma_lop' => ['nullable', 'integer', 'exists:lop_hoc,id'],
+            'ma_lop_hoc_phan' => ['required', 'integer', 'exists:lop_hoc_phan,id'],
+            'ma_giang_vien' => ['required', 'integer', 'exists:giang_vien,id'],
+            'ma_tuan' => ['required', 'integer', 'exists:tuan,id'],
+            'ngay_hoc_cu_the' => ['required', 'date_format:Y-m-d'],
+            'thu_trong_tuan' => [
+                'required',
+                'string',
+                Rule::in([
+                    'Thứ 2',
+                    'Thứ 3',
+                    'Thứ 4',
+                    'Thứ 5',
+                    'Thứ 6',
+                    'Thứ 7',
+                    'Chủ nhật',
+                ]),
+            ],
+            'so_tiet_bat_dau' => ['required', 'integer', 'min:1', 'max:12'],
+            'so_tiet_ket_thuc' => [
+                'required',
+                'integer',
+                'min:1',
+                'max:12',
+                'gte:so_tiet_bat_dau',
+            ],
+            'loai_lich' => [
+                'required',
+                'string',
+                Rule::in([
+                    'LyThuyet',
+                    'ThucHanh',
+                    'ChinhThuc',
+                    'DatPhong',
+                    'BoSung',
+                ]),
+            ],
+            'ma_dat_phong_may' => ['nullable', 'integer', 'exists:dat_phong_may,id'],
+            'trang_thai' => [
+                'required',
+                'string',
+                Rule::in(['scheduled', 'completed', 'cancelled']),
+            ],
+            'ghi_chu' => ['nullable', 'string'],
+        ];
+    }
+
+    private function scheduleImportMessages(): array
+    {
+        return [
+            'ma_phong.required' => 'Mã phòng không tồn tại hoặc đang trống.',
+            'ma_lop.exists' => 'Mã lớp không tồn tại.',
+            'ma_lop_hoc_phan.required' => 'Mã lớp học phần không tồn tại hoặc đang trống.',
+            'ma_giang_vien.required' => 'Mã giảng viên không tồn tại hoặc đang trống.',
+            'ma_tuan.required' => 'Không xác định được tuần học.',
+            'ma_tuan.exists' => 'Tuần học không tồn tại.',
+            'ngay_hoc_cu_the.required' => 'Ngày học là bắt buộc.',
+            'ngay_hoc_cu_the.date_format' => 'Ngày học phải có định dạng Y-m-d.',
+            'thu_trong_tuan.required' => 'Thứ trong tuần là bắt buộc.',
+            'thu_trong_tuan.in' => 'Thứ trong tuần không hợp lệ.',
+            'so_tiet_bat_dau.required' => 'Tiết bắt đầu là bắt buộc.',
+            'so_tiet_bat_dau.integer' => 'Tiết bắt đầu phải là số nguyên.',
+            'so_tiet_bat_dau.min' => 'Tiết bắt đầu phải từ 1 trở lên.',
+            'so_tiet_bat_dau.max' => 'Tiết bắt đầu không được vượt quá 12.',
+            'so_tiet_ket_thuc.required' => 'Tiết kết thúc là bắt buộc.',
+            'so_tiet_ket_thuc.integer' => 'Tiết kết thúc phải là số nguyên.',
+            'so_tiet_ket_thuc.gte' => 'Tiết kết thúc phải lớn hơn hoặc bằng tiết bắt đầu.',
+            'so_tiet_ket_thuc.max' => 'Tiết kết thúc không được vượt quá 12.',
+            'loai_lich.in' => 'Loại lịch không hợp lệ.',
+            'trang_thai.in' => 'Trạng thái lịch không hợp lệ.',
+            'ghi_chu.string' => 'Ghi chú không hợp lệ.',
+        ];
+    }
+
     private function scheduleData(array $data): array
     {
         return [
@@ -477,7 +858,10 @@ class ComputerLabScheduleController extends Controller
         $studyDate = Carbon::createFromFormat(
             'Y-m-d',
             $data['ngay_hoc_cu_the']
-        );
+        )->startOfDay();
+
+        $weekStartDate = Carbon::parse($week->ngay_bat_dau)->startOfDay();
+        $weekEndDate = Carbon::parse($week->ngay_ket_thuc)->endOfDay();
 
         $dayLabels = [
             1 => 'Thứ 2',
@@ -489,12 +873,7 @@ class ComputerLabScheduleController extends Controller
             7 => 'Chủ nhật',
         ];
 
-        if (
-            ! $studyDate->betweenIncluded(
-                $week->ngay_bat_dau,
-                $week->ngay_ket_thuc
-            )
-        ) {
+        if (! $studyDate->betweenIncluded($weekStartDate, $weekEndDate)) {
             return response()->json([
                 'status' => false,
                 'message' => 'Ngày học không nằm trong tuần đã chọn',
@@ -507,10 +886,7 @@ class ComputerLabScheduleController extends Controller
             ], 422);
         }
 
-        if (
-            $dayLabels[$studyDate->dayOfWeekIso]
-            !== $data['thu_trong_tuan']
-        ) {
+        if ($dayLabels[$studyDate->dayOfWeekIso] !== $data['thu_trong_tuan']) {
             return response()->json([
                 'status' => false,
                 'message' => 'Ngày học không khớp với thứ trong tuần',
@@ -547,6 +923,16 @@ class ComputerLabScheduleController extends Controller
 
     private function conflictResponse(string $conflict)
     {
+        return response()->json([
+            'status' => false,
+            'message' => $this->conflictMessage($conflict),
+            'error_code' => 409,
+            'data' => '',
+        ], 409);
+    }
+
+    private function conflictMessage(string $conflict): string
+    {
         $messages = [
             'room_conflict' =>
                 'Phòng máy đã có lịch trùng ngày và khoảng tiết',
@@ -558,12 +944,7 @@ class ComputerLabScheduleController extends Controller
                 'Lớp học phần đã có lịch trùng ngày và khoảng tiết',
         ];
 
-        return response()->json([
-            'status' => false,
-            'message' => $messages[$conflict],
-            'error_code' => 409,
-            'data' => '',
-        ], 409);
+        return $messages[$conflict] ?? 'Lịch phòng máy bị trùng';
     }
 
     private function serverErrorResponse()

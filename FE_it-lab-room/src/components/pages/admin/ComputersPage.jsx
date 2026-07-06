@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Edit, QrCode, Search, Trash2 } from "lucide-react";
+import { Edit, Search, Trash2 } from "lucide-react";
 import AppShell from "../../common/AppShell";
 import SectionCard from "../../common/SectionCard";
 import DataTable from "../../common/DataTable";
 import {
   deleteComputerFromApi,
-  generateComputerQrCodeFromApi,
   getComputersFromApi,
 } from "../../../services/computer.service";
 import { getRoomsFromApi } from "../../../services/room.service";
@@ -47,7 +46,6 @@ export default function ComputersPage() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [deletingId, setDeletingId] = useState(null);
-  const [generatingQrId, setGeneratingQrId] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -116,28 +114,6 @@ export default function ComputersPage() {
       } finally {
         setDeletingId(null);
       }
-    }
-  };
-
-  const handleGenerateQrCode = async (event, computer) => {
-    event.stopPropagation();
-    event.preventDefault();
-    setError("");
-    setSuccessMessage("");
-    setGeneratingQrId(computer.id);
-
-    try {
-      const response = await generateComputerQrCodeFromApi(computer.id);
-      const updatedComputer = mapComputer(response.data);
-
-      setComputers((currentComputers) => currentComputers.map((item) => (
-        item.id === computer.id ? updatedComputer : item
-      )));
-      setSuccessMessage(`Đã tạo mã QR cho máy ${updatedComputer.code}.`);
-    } catch (apiError) {
-      setError(apiError.message || "Không thể tạo mã QR cho máy tính.");
-    } finally {
-      setGeneratingQrId(null);
     }
   };
 
@@ -215,15 +191,6 @@ export default function ComputersPage() {
                       <Edit size={15} />
                       Sửa
                     </Link>
-                    <button
-                      type="button"
-                      onClick={(event) => handleGenerateQrCode(event, computer)}
-                      disabled={generatingQrId === computer.id}
-                      className="inline-flex items-center gap-2 rounded-lg bg-emerald-100 px-3 py-1.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
-                    >
-                      <QrCode size={15} />
-                      {generatingQrId === computer.id ? "Đang tạo" : computer.qrCode ? "Tạo lại QR" : "Tạo QR"}
-                    </button>
                     <button
                       type="button"
                       onClick={() => handleDelete(computer)}

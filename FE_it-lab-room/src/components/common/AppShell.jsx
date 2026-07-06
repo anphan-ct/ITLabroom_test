@@ -18,7 +18,7 @@ const loginPaths = {
   student: "/student/login",
 };
 
-export default function AppShell({ role, title, subtitle, children }) {
+export default function AppShell({ role, title, children }) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const isAdmin = role === "admin";
@@ -62,19 +62,13 @@ export default function AppShell({ role, title, subtitle, children }) {
 
         <main className="app-scrollbar min-w-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-[1440px] space-y-5 pb-4 md:space-y-6">
-            {isAdmin && (title || subtitle) && (
+            {isAdmin && title && (
               <div className="border-b border-slate-200/80 pb-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wide text-blue-700">
-                      {roleLabels[role] || "IT Lab Room"}
-                    </p>
-                    <h1 className="mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">
+                    <h1 className="text-2xl font-bold text-slate-950 sm:text-3xl">
                       {title}
                     </h1>
-                    {subtitle && (
-                      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{subtitle}</p>
-                    )}
                   </div>
                 </div>
               </div>

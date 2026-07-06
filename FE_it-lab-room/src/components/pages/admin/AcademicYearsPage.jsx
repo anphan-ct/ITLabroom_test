@@ -61,7 +61,6 @@ export default function AcademicYearsPage() {
   const [items, setItems] = useState([]);
   const [activeStatus, setActiveStatus] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
-  const [selectedId, setSelectedId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState("");
@@ -77,11 +76,6 @@ export default function AcademicYearsPage() {
     const response = await getAcademicYearsFromApi(params);
     const mappedItems = (response.data || []).map(mapAcademicYear);
     setItems(mappedItems);
-    setSelectedId((currentId) => (
-      mappedItems.some((item) => item.id === currentId)
-        ? currentId
-        : mappedItems[0]?.id || null
-    ));
   }, [activeStatus]);
 
   useEffect(() => {
@@ -121,10 +115,6 @@ export default function AcademicYearsPage() {
       return !keyword || searchContent.includes(keyword);
     });
   }, [items, searchKeyword]);
-
-  const selectedAcademicYear = useMemo(() => {
-    return items.find((item) => item.id === selectedId) || filteredItems[0] || null;
-  }, [filteredItems, items, selectedId]);
 
   const handleDelete = async (item) => {
     if (!window.confirm(`Xóa năm học ${item.name}?`)) {
@@ -211,17 +201,13 @@ export default function AcademicYearsPage() {
               title: "Thao tác",
               render: (_, item) => (
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      setSelectedId(item.id);
-                    }}
+                  <Link
+                    to={`/admin/academic-years/${item.id}/weeks`}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-sky-100 px-3 py-1 text-sky-700 transition hover:bg-sky-200"
                   >
                     <CalendarDays size={14} />
                     Tuần
-                  </button>
+                  </Link>
                   <Link
                     to={`/admin/academic-years/${item.id}/edit`}
                     onClick={(event) => event.stopPropagation()}
@@ -247,34 +233,9 @@ export default function AcademicYearsPage() {
             },
           ]}
           data={filteredItems}
+          getRowLink={(item) => `/admin/academic-years/${item.id}/weeks`}
           emptyText={isLoading ? "Đang tải danh sách năm học" : "Chưa có năm học"}
         />
-
-        <div className="mt-6 border-t border-slate-200 pt-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-bold text-slate-900">Danh sách tuần</h3>
-              <p className="text-sm text-slate-500">
-                {selectedAcademicYear
-                  ? `${selectedAcademicYear.name} - ${selectedAcademicYear.weekCount} tuần`
-                  : "Chọn một năm học để xem tuần"}
-              </p>
-            </div>
-          </div>
-
-          <DataTable
-            columns={[
-              { key: "so_tuan", title: "Tuần" },
-              { key: "ngay_bat_dau", title: "Ngày bắt đầu", render: formatDate },
-              { key: "ngay_ket_thuc", title: "Ngày kết thúc", render: formatDate },
-            ]}
-            data={(selectedAcademicYear?.weeks || []).map((week) => ({
-              ...week,
-              so_tuan: `Tuần ${week.so_tuan}`,
-            }))}
-            emptyText="Chưa có tuần học"
-          />
-        </div>
       </SectionCard>
     </AppShell>
   );

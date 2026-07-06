@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarCheck, CheckCircle2, ClipboardList, Search, XCircle } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { CheckCircle2, Search, XCircle } from "lucide-react";
 import AppShell from "../../common/AppShell";
 import DataTable from "../../common/DataTable";
 import SectionCard from "../../common/SectionCard";
-import StatCard from "../../common/StatCard";
 import StatusBadge from "../../common/StatusBadge";
 import {
   getAdminRoomBookingsFromApi,
@@ -19,7 +18,7 @@ const statusOptions = [
 const statusLabels = Object.fromEntries(statusOptions.map((status) => [status.value, status.label]));
 const formatDate = (date) => date ? new Intl.DateTimeFormat("vi-VN").format(new Date(date)) : "-";
 
-export default function RoomBookingsManagePage() {
+export function RoomBookingsManageContent() {
   const [bookings, setBookings] = useState([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
@@ -67,24 +66,12 @@ export default function RoomBookingsManagePage() {
     }
   };
 
-  const stats = useMemo(() => ({
-    total: bookings.length,
-    pending: bookings.filter((item) => item.approval_status === "pending").length,
-    approved: bookings.filter((item) => item.approval_status === "approved").length,
-  }), [bookings]);
-
   return (
-    <AppShell role="admin" title="Quản lý đăng ký phòng" subtitle="Duyệt và theo dõi yêu cầu đăng ký sử dụng phòng máy">
+    <>
       {error ? <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div> : null}
       {message ? <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{message}</div> : null}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <StatCard title="Tổng yêu cầu" value={String(stats.total).padStart(2, "0")} desc="Theo bộ lọc hiện tại" icon={<ClipboardList size={22} />} />
-        <StatCard title="Chờ duyệt" value={String(stats.pending).padStart(2, "0")} desc="Cần admin xử lý" icon={<CalendarCheck size={22} />} />
-        <StatCard title="Đã duyệt" value={String(stats.approved).padStart(2, "0")} desc="Đã xác nhận giữ phòng" icon={<CheckCircle2 size={22} />} />
-      </div>
-
-      <div className="mt-6">
+      <div>
         <SectionCard
           title="Danh sách đăng ký phòng"
           rightAction={
@@ -129,6 +116,14 @@ export default function RoomBookingsManagePage() {
           />
         </SectionCard>
       </div>
+    </>
+  );
+}
+
+export default function RoomBookingsManagePage() {
+  return (
+    <AppShell role="admin" title="Yêu cầu đặt phòng" subtitle="Theo dõi lịch sử dụng phòng máy và duyệt yêu cầu đặt phòng">
+      <RoomBookingsManageContent />
     </AppShell>
   );
 }

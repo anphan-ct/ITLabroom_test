@@ -32,6 +32,13 @@ export function createComputerLabScheduleFromApi(payload) {
   });
 }
 
+export function importComputerLabSchedulesFromApi(payload) {
+  return fetcher(CONST_APIS.SCHEDULES.IMPORT, {
+    method: CONST_METHODS.POST,
+    body: payload,
+  });
+}
+
 export function getComputerLabScheduleFromApi(id) {
   return fetcher(CONST_APIS.SCHEDULES.SHOW(id), {
     method: CONST_METHODS.GET,

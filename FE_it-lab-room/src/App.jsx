@@ -22,7 +22,6 @@ import ScheduleFormPage from "./components/pages/admin/ScheduleFormPage.jsx";
 import LoanRequestsManagePage from "./components/pages/teacher/LoanRequestsManagePage.jsx";
 import LoanApprovalPage from "./components/pages/admin/LoanApprovalPage.jsx";
 import ReturnApprovalPage from "./components/pages/admin/ReturnApprovalPage.jsx";
-import RoomBookingsManagePage from "./components/pages/admin/RoomBookingsManagePage.jsx";
 import ComputerImportDetailPage from "./components/pages/admin/ComputerImportDetailPage.jsx";
 import ComputerImportsPage from "./components/pages/admin/ComputerImportsPage.jsx";
 import ComputerReturnDetailsPage from "./components/pages/admin/ComputerReturnDetailsPage.jsx";
@@ -33,8 +32,10 @@ import CourseSectionFormPage from "./components/pages/admin/CourseSectionFormPag
 import CourseSectionStudentsPage from "./components/pages/admin/CourseSectionStudentsPage.jsx";
 import AcademicYearsPage from "./components/pages/admin/AcademicYearsPage.jsx";
 import AcademicYearFormPage from "./components/pages/admin/AcademicYearFormPage.jsx";
+import AcademicYearWeeksPage from "./components/pages/admin/AcademicYearWeeksPage.jsx";
 import LoanDetailsPage from "./components/pages/admin/LoanDetailsPage.jsx";
 import RepairLogsPage from "./components/pages/admin/RepairLogsPage.jsx";
+import RoomBookingsManagePage from "./components/pages/admin/RoomBookingsManagePage.jsx";
 
 import TeacherSchedulePage from "./components/pages/teacher/TeacherSchedulePage.jsx";
 import AttendancePage from "./components/pages/teacher/AttendancePage.jsx";
@@ -43,7 +44,6 @@ import RoomBookingPage from "./components/pages/teacher/RoomBookingPage.jsx";
 import IncidentPage from "./components/common/IncidentPage.jsx";
 
 import StudentSchedulePage from "./components/pages/student/StudentSchedulePage.jsx";
-import ComputerLookupPage from "./components/pages/student/ComputerLookupPage.jsx";
 import StudentIncidentPage from "./components/pages/student/StudentIncidentPage.jsx";
 import StudentAttendancePage from "./components/pages/student/StudentAttendancePage.jsx";
 import StudentAttendanceDetailPage from "./components/pages/student/StudentAttendanceDetailPage.jsx";
@@ -73,6 +73,7 @@ export default function App() {
       <Route path="/admin/subjects/:subjectId/edit" element={<ProtectedRoute role="admin"><SubjectFormPage /></ProtectedRoute>} />
       <Route path="/admin/academic-years" element={<ProtectedRoute role="admin"><AcademicYearsPage /></ProtectedRoute>} />
       <Route path="/admin/academic-years/create" element={<ProtectedRoute role="admin"><AcademicYearFormPage /></ProtectedRoute>} />
+      <Route path="/admin/academic-years/:academicYearId/weeks" element={<ProtectedRoute role="admin"><AcademicYearWeeksPage /></ProtectedRoute>} />
       <Route path="/admin/academic-years/:academicYearId/edit" element={<ProtectedRoute role="admin"><AcademicYearFormPage /></ProtectedRoute>} />
       <Route path="/admin/rooms" element={<ProtectedRoute role="admin"><RoomsPage /></ProtectedRoute>} />
       <Route path="/admin/rooms/create" element={<ProtectedRoute role="admin"><RoomFormPage /></ProtectedRoute>} />
@@ -91,7 +92,14 @@ export default function App() {
       <Route path="/admin/computer-imports/:importId" element={<ProtectedRoute role="admin"><ComputerImportDetailPage /></ProtectedRoute>} />
       <Route path="/admin/loan-approvals" element={<ProtectedRoute role="admin"><LoanApprovalPage /></ProtectedRoute>} />
       <Route path="/admin/return-approvals" element={<ProtectedRoute role="admin"><ReturnApprovalPage /></ProtectedRoute>} />
-      <Route path="/admin/room-bookings" element={<ProtectedRoute role="admin"><RoomBookingsManagePage /></ProtectedRoute>} />
+      <Route
+        path="/admin/room-bookings"
+        element={
+          <ProtectedRoute role="admin">
+            <RoomBookingsManagePage />
+          </ProtectedRoute>
+        }
+      />
       <Route path="/admin/course-sections" element={<ProtectedRoute role="admin"><CourseSectionsPage /></ProtectedRoute>} />
       <Route path="/admin/course-sections/create" element={<ProtectedRoute role="admin"><CourseSectionFormPage /></ProtectedRoute>} />
       <Route path="/admin/course-sections/:courseSectionId/edit" element={<ProtectedRoute role="admin"><CourseSectionFormPage /></ProtectedRoute>} />
@@ -123,7 +131,7 @@ export default function App() {
 
       <Route path="/student" element={<ProtectedRoute role="student"><Navigate to="/student/schedules" replace /></ProtectedRoute>} />
       <Route path="/student/schedules" element={<ProtectedRoute role="student"><StudentSchedulePage /></ProtectedRoute>} />
-      <Route path="/student/computers" element={<ProtectedRoute role="student"><ComputerLookupPage /></ProtectedRoute>} />
+      <Route path="/student/computers" element={<ProtectedRoute role="student"><Navigate to="/student/incidents" replace /></ProtectedRoute>} />
       <Route path="/student/incidents" element={<ProtectedRoute role="student"><StudentIncidentPage /></ProtectedRoute>} />
       <Route path="/student/attendance" element={<ProtectedRoute role="student"><StudentAttendancePage /></ProtectedRoute>} />
       <Route path="/student/attendance/history" element={<ProtectedRoute role="student"><Navigate to="/student/attendance" replace /></ProtectedRoute>} />

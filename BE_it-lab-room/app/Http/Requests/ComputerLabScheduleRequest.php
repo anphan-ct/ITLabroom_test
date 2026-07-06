@@ -39,7 +39,7 @@ class ComputerLabScheduleRequest extends FormRequest
             ],
             'so_tiet_bat_dau' => ['required', 'integer', 'min:1', 'max:12'],
             'so_tiet_ket_thuc' => ['required', 'integer', 'min:1', 'max:12', 'gte:so_tiet_bat_dau'],
-            'loai_lich' => ['required', 'string', Rule::in(['ChinhThuc', 'DatPhong', 'BoSung'])],
+            'loai_lich' => ['required', 'string', Rule::in(['LyThuyet', 'ThucHanh', 'ChinhThuc', 'DatPhong', 'BoSung'])],
             'ma_dat_phong_may' => ['nullable', 'integer', 'exists:dat_phong_may,id'],
             'trang_thai' => ['required', 'string', Rule::in(['scheduled', 'completed', 'cancelled'])],
             'ghi_chu' => ['nullable', 'string'],

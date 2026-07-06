@@ -79,31 +79,38 @@ function getGraphicCardName(form) {
   return joinText(form.card_do_hoa, form.ten_card_roi);
 }
 
-function buildConfigSummary(form) {
-  const cpu = joinText(form.hang_cpu, form.ma_cpu);
-  const ram = joinText(form.hang_ram, form.dung_luong_ram);
-  const graphicCard = getGraphicCardName(form);
-  const monitor = form.hang_man_hinh.trim();
+function getValidationErrors(form) {
+  const errors = {};
+  const requiredFields = {
+    ma_phieu_nhap: "Vui lòng nhập mã phiếu nhập.",
+    ngay_nhap: "Vui lòng chọn ngày nhập.",
+    ma_phong: "Vui lòng chọn phòng máy.",
+    hang_cpu: "Vui lòng chọn hãng CPU.",
+    ma_cpu: "Vui lòng nhập thế hệ / mã CPU.",
+    hang_ram: "Vui lòng nhập hãng RAM.",
+    dung_luong_ram: "Vui lòng chọn dung lượng RAM.",
+    card_do_hoa: "Vui lòng chọn card đồ họa.",
+    bo_mach_chu: "Vui lòng nhập bo mạch chủ.",
+    hang_man_hinh: "Vui lòng nhập màn hình.",
+    ban_phim: "Vui lòng nhập bàn phím.",
+    chuot: "Vui lòng nhập chuột.",
+  };
 
-  return [
-    cpu && `CPU: ${cpu}`,
-    ram && `RAM: ${ram}`,
-    graphicCard && `VGA: ${graphicCard}`,
-    form.bo_mach_chu && `Bo mạch chủ: ${form.bo_mach_chu}`,
-    monitor && `Màn hình: ${monitor}`,
-    form.hdd && `HDD: ${form.hdd}`,
-    form.ssd && `SSD: ${form.ssd}`,
-    form.ban_phim && `Bàn phím: ${form.ban_phim}`,
-    form.chuot && `Chuột: ${form.chuot}`,
-  ].filter(Boolean).join(" | ");
-}
+  Object.entries(requiredFields).forEach(([fieldName, message]) => {
+    if (!form[fieldName].trim()) {
+      errors[fieldName] = message;
+    }
+  });
 
-function buildComputerNote(form) {
-  return [
-    form.nha_cung_cap && `Nhà cung cấp: ${form.nha_cung_cap.trim()}`,
-    buildConfigSummary(form) && `Cấu hình: ${buildConfigSummary(form)}`,
-    form.ghi_chu && `Ghi chú: ${form.ghi_chu.trim()}`,
-  ].filter(Boolean).join("\n");
+  if (Number(form.so_luong) <= 0) {
+    errors.so_luong = "Số lượng máy nhập phải lớn hơn 0.";
+  }
+
+  if (form.card_do_hoa === "Card Rời" && !form.ten_card_roi.trim()) {
+    errors.ten_card_roi = "Vui lòng nhập tên card rời.";
+  }
+
+  return errors;
 }
 
 export default function ComputerImportsPage() {
@@ -111,6 +118,7 @@ export default function ComputerImportsPage() {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [rooms, setRooms] = useState([]);
   const [form, setForm] = useState(defaultForm);
+  const [formErrors, setFormErrors] = useState({});
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -151,6 +159,16 @@ export default function ComputerImportsPage() {
       [name]: value,
       ...(name === "card_do_hoa" && value !== "Card Rời" ? { ten_card_roi: "" } : {}),
     }));
+    setFormErrors((currentErrors) => {
+      const nextErrors = { ...currentErrors };
+
+      delete nextErrors[name];
+      if (name === "card_do_hoa") {
+        delete nextErrors.ten_card_roi;
+      }
+
+      return nextErrors;
+    });
   };
 
   const buildPayload = () => ({
@@ -168,25 +186,18 @@ export default function ComputerImportsPage() {
     chuot: cleanText(form.chuot),
     hdd: cleanText(form.hdd),
     ssd: cleanText(form.ssd),
-    ghi_chu: cleanText(buildComputerNote(form)),
+    ghi_chu: cleanText(form.ghi_chu),
   });
 
   const submit = async (event) => {
     event.preventDefault();
     setError("");
+    setFormErrors({});
 
-    if (!form.ma_phieu_nhap.trim() || !form.ngay_nhap) {
-      setError("Vui lòng nhập mã phiếu và ngày nhập.");
-      return;
-    }
+    const validationErrors = getValidationErrors(form);
 
-    if (!form.ma_phong) {
-      setError("Vui lòng chọn phòng máy.");
-      return;
-    }
-
-    if (Number(form.so_luong) <= 0) {
-      setError("Số lượng máy nhập phải lớn hơn 0.");
+    if (Object.keys(validationErrors).length > 0) {
+      setFormErrors(validationErrors);
       return;
     }
 
@@ -204,6 +215,7 @@ export default function ComputerImportsPage() {
         ngay_nhap: currentForm.ngay_nhap,
         ma_phong: currentForm.ma_phong,
       }));
+      setFormErrors({});
     } catch (apiError) {
       setError(getApiErrorMessage(apiError));
     } finally {
@@ -237,7 +249,7 @@ export default function ComputerImportsPage() {
                 <h3 className="text-sm font-bold text-slate-900">Thông tin phiếu nhập</h3>
               </div>
 
-              <Field label="Mã phiếu nhập">
+              <Field label="Mã phiếu nhập" error={formErrors.ma_phieu_nhap}>
                 <TextInput
                   value={form.ma_phieu_nhap}
                   onChange={(value) => handleChange("ma_phieu_nhap", value)}
@@ -245,7 +257,7 @@ export default function ComputerImportsPage() {
                 />
               </Field>
 
-              <Field label="Ngày nhập">
+              <Field label="Ngày nhập" error={formErrors.ngay_nhap}>
                 <TextInput
                   type="date"
                   value={form.ngay_nhap}
@@ -253,7 +265,7 @@ export default function ComputerImportsPage() {
                 />
               </Field>
 
-              <Field label="Số lượng máy mới">
+              <Field label="Số lượng máy mới" error={formErrors.so_luong}>
                 <TextInput
                   type="number"
                   value={form.so_luong}
@@ -261,7 +273,7 @@ export default function ComputerImportsPage() {
                 />
               </Field>
 
-              <Field label="Phòng máy">
+              <Field label="Phòng máy" error={formErrors.ma_phong}>
                 <SelectInput
                   value={form.ma_phong}
                   onChange={(value) => handleChange("ma_phong", value)}
@@ -299,7 +311,7 @@ export default function ComputerImportsPage() {
                 <h3 className="text-sm font-bold text-blue-700">Cấu hình chung</h3>
               </div>
 
-              <Field label="Hãng CPU">
+              <Field label="Hãng CPU" error={formErrors.hang_cpu}>
                 <SelectInput value={form.hang_cpu} onChange={(value) => handleChange("hang_cpu", value)}>
                   {cpuBrands.map((brand) => (
                     <option key={brand} value={brand}>{brand}</option>
@@ -307,7 +319,7 @@ export default function ComputerImportsPage() {
                 </SelectInput>
               </Field>
 
-              <Field label="Thế hệ / Mã CPU">
+              <Field label="Thế hệ / Mã CPU" error={formErrors.ma_cpu}>
                 <TextInput
                   value={form.ma_cpu}
                   onChange={(value) => handleChange("ma_cpu", value)}
@@ -315,7 +327,7 @@ export default function ComputerImportsPage() {
                 />
               </Field>
 
-              <Field label="Hãng RAM">
+              <Field label="Hãng RAM" error={formErrors.hang_ram}>
                 <TextInput
                   value={form.hang_ram}
                   onChange={(value) => handleChange("hang_ram", value)}
@@ -323,7 +335,7 @@ export default function ComputerImportsPage() {
                 />
               </Field>
 
-              <Field label="Dung lượng RAM">
+              <Field label="Dung lượng RAM" error={formErrors.dung_luong_ram}>
                 <SelectInput value={form.dung_luong_ram} onChange={(value) => handleChange("dung_luong_ram", value)}>
                   {ramCapacities.map((capacity) => (
                     <option key={capacity} value={capacity}>{capacity}</option>
@@ -332,7 +344,7 @@ export default function ComputerImportsPage() {
               </Field>
 
               <div className={form.card_do_hoa === "Card Rời" ? "" : "sm:col-span-2"}>
-                <Field label="Card đồ họa">
+                <Field label="Card đồ họa" error={formErrors.card_do_hoa}>
                   <SelectInput value={form.card_do_hoa} onChange={(value) => handleChange("card_do_hoa", value)}>
                     <option value="">Chọn card đồ họa</option>
                     {graphicCardOptions.map((card) => (
@@ -343,7 +355,7 @@ export default function ComputerImportsPage() {
               </div>
 
               {form.card_do_hoa === "Card Rời" && (
-                <Field label="Tên Card Rời">
+                <Field label="Tên Card Rời" error={formErrors.ten_card_roi}>
                   <TextInput
                     value={form.ten_card_roi}
                     onChange={(value) => handleChange("ten_card_roi", value)}
@@ -353,7 +365,7 @@ export default function ComputerImportsPage() {
               )}
 
               <div className="sm:col-span-2">
-                <Field label="Bo mạch chủ">
+                <Field label="Bo mạch chủ" error={formErrors.bo_mach_chu}>
                   <TextInput
                     value={form.bo_mach_chu}
                     onChange={(value) => handleChange("bo_mach_chu", value)}
@@ -363,7 +375,7 @@ export default function ComputerImportsPage() {
               </div>
 
               <div className="sm:col-span-2">
-                <Field label="Màn hình">
+                <Field label="Màn hình" error={formErrors.hang_man_hinh}>
                   <TextInput
                     value={form.hang_man_hinh}
                     onChange={(value) => handleChange("hang_man_hinh", value)}
@@ -390,7 +402,7 @@ export default function ComputerImportsPage() {
                 </SelectInput>
               </Field>
 
-              <Field label="Bàn phím">
+              <Field label="Bàn phím" error={formErrors.ban_phim}>
                 <TextInput
                   value={form.ban_phim}
                   onChange={(value) => handleChange("ban_phim", value)}
@@ -398,7 +410,7 @@ export default function ComputerImportsPage() {
                 />
               </Field>
 
-              <Field label="Chuột">
+              <Field label="Chuột" error={formErrors.chuot}>
                 <TextInput
                   value={form.chuot}
                   onChange={(value) => handleChange("chuot", value)}

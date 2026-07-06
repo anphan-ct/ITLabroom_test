@@ -1,9 +1,5 @@
-import {
-  Briefcase,
-  GraduationCap,
-  LogOut,
-  UserRound,
-} from "lucide-react";
+import { LogOut, UserRound } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 export default function Header({
@@ -12,10 +8,30 @@ export default function Header({
   currentUser,
   roleLabel,
   showMenuButton = true,
-  showLoginLinks = true,
   showLogout = false,
-  hideLogoutOnMobile = false,
 }) {
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (accountRef.current && !accountRef.current.contains(event.target)) {
+        setAccountOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    setAccountOpen(false);
+    onLogout?.();
+  };
+
   return (
     <header className="sticky top-0 z-30 border-b border-[#193D87] bg-[#193D87] text-white shadow-sm">
       {showMenuButton && (
@@ -52,26 +68,43 @@ export default function Header({
         </Link>
 
         {showLogout && (
-          <div className="ml-auto hidden min-w-0 items-center gap-3 md:flex">
-            <div className="min-w-0 text-right leading-tight">
-              <p className="truncate text-sm font-bold text-white">
-                {currentUser?.full_name || currentUser?.name || "Tài khoản"}
-              </p>
-              <p className="mt-1 truncate text-xs font-medium text-blue-100">
-                {currentUser?.email || roleLabel || "Đang đăng nhập"}
-              </p>
-            </div>
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/25 bg-white/10">
-              <UserRound size={20} />
-            </span>
+          <div ref={accountRef} className="relative ml-auto hidden min-w-0 md:block">
             <button
-              className={`h-10 items-center gap-2 rounded-lg border border-white/30 bg-white/10 px-3 text-sm font-semibold text-white hover:bg-white/20 ${hideLogoutOnMobile ? "hidden md:inline-flex" : "inline-flex"}`}
-              onClick={onLogout}
               type="button"
+              onClick={() => setAccountOpen((open) => !open)}
+              className="flex min-w-0 cursor-pointer items-center gap-3 px-2 py-1.5 text-white"
+              aria-expanded={accountOpen}
+              aria-haspopup="menu"
             >
-              <LogOut size={16} />
-              <span className="hidden sm:inline">Đăng xuất</span>
+              <div className="min-w-0 text-right leading-tight">
+                <p className="truncate text-sm font-bold text-white">
+                  {currentUser?.full_name || currentUser?.name || "Tài khoản"}
+                </p>
+                <p className="mt-1 truncate text-xs font-medium text-blue-100">
+                  {currentUser?.email || roleLabel || "Đang đăng nhập"}
+                </p>
+              </div>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center">
+                <UserRound size={20} />
+              </span>
             </button>
+
+            {accountOpen && (
+              <div
+                className="absolute right-0 top-full mt-2 w-56 rounded-lg border border-slate-200 bg-white p-2 text-slate-900 shadow-lg"
+                role="menu"
+              >
+                <button
+                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-950"
+                  onClick={handleLogout}
+                  type="button"
+                  role="menuitem"
+                >
+                  <LogOut size={16} />
+                  <span>Đăng xuất</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 

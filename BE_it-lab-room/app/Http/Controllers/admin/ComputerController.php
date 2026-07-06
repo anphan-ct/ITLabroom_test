@@ -98,6 +98,8 @@ class ComputerController extends Controller
                     'chuot',
                     'hdd',
                     'ssd',
+                    'trang_thai',
+                    'ghi_chu',
                 ])
                 ->with('room:id,ma_phong,ten_phong')
                 ->where('ma_qr', $qrCode)

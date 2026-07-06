@@ -80,6 +80,7 @@ Route::middleware(['auth:sanctum', 'abilities:student'])->group(function () {
 });
 
 // API tra cứu thông tin máy tính sau khi app mobile quét mã QR.
+Route::get('/scan/{qrCode}', [ComputerController::class, 'showByQrCode']);
 Route::middleware('auth:sanctum')->get('/computers/qr/{qrCode}', [ComputerController::class, 'showByQrCode']);
 
 Route::middleware(['auth:sanctum', 'abilities:admin'])->group(function () {
@@ -151,6 +152,7 @@ Route::middleware(['auth:sanctum', 'abilities:admin'])->group(function () {
     Route::prefix('admin/computer-lab-schedules')->group(function () {
         Route::get('/', [ComputerLabScheduleController::class, 'index']);
         Route::post('/', [ComputerLabScheduleController::class, 'store']);
+        Route::post('/import', [ComputerLabScheduleController::class, 'import']);
         Route::get('/options', [ComputerLabScheduleController::class, 'options']);
         Route::get('/{computerLabSchedule}', [ComputerLabScheduleController::class, 'show']);
         Route::put('/{computerLabSchedule}', [ComputerLabScheduleController::class, 'update']);

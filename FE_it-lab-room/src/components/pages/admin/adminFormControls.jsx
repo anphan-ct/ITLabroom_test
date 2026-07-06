@@ -1,8 +1,9 @@
-export function Field({ label, children }) {
+export function Field({ label, children, error = "" }) {
   return (
     <label className="space-y-2">
       <span className="text-sm font-semibold text-slate-700">{label}</span>
       {children}
+      {error && <span className="block text-xs font-semibold text-rose-600">{error}</span>}
     </label>
   );
 }

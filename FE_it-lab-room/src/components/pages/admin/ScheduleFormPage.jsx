@@ -10,13 +10,12 @@ import {
   updateComputerLabScheduleFromApi,
 } from "../../../services/schedules.service";
 
-const scheduleTypes = ["ChinhThuc", "DatPhong", "BoSung"];
-const lessonOptions = Array.from({ length: 12 }, (_, index) => index + 1);
-const scheduleStatuses = [
-  { label: "Đã xếp lịch", value: "scheduled" },
-  { label: "Đã hoàn thành", value: "completed" },
-  { label: "Đã hủy", value: "cancelled" },
+const scheduleTypes = [
+  { label: "Lý thuyết", value: "LyThuyet" },
+  { label: "Thực hành", value: "ThucHanh" },
 ];
+
+const lessonOptions = Array.from({ length: 12 }, (_, index) => index + 1);
 
 const initialForm = {
   studyDate: "",
@@ -28,7 +27,7 @@ const initialForm = {
   weekId: "",
   lessonStart: 1,
   lessonEnd: 3,
-  scheduleType: "ChinhThuc",
+  scheduleType: "ThucHanh",
   bookingRequestId: "",
   status: "scheduled",
   note: "",
@@ -43,11 +42,18 @@ const emptyOptions = {
 };
 
 function getDayLabel(dateValue) {
-  if (!dateValue) {
-    return "";
-  }
+  if (!dateValue) return "";
 
-  const labels = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+  const labels = [
+    "Chủ nhật",
+    "Thứ 2",
+    "Thứ 3",
+    "Thứ 4",
+    "Thứ 5",
+    "Thứ 6",
+    "Thứ 7",
+  ];
+
   return labels[new Date(`${dateValue}T00:00:00`).getDay()];
 }
 
@@ -62,24 +68,42 @@ function mapHistoryToForm(history) {
     weekId: String(history.ma_tuan || ""),
     lessonStart: history.so_tiet_bat_dau || 1,
     lessonEnd: history.so_tiet_ket_thuc || 1,
-    scheduleType: history.loai_lich || "ChinhThuc",
+    scheduleType: history.loai_lich || "ThucHanh",
     bookingRequestId: String(history.ma_dat_phong_may || ""),
     status: history.trang_thai || "scheduled",
     note: history.ghi_chu || "",
   };
 }
 
+function getCourseSectionRelatedData(options, courseSectionId) {
+  return options.course_sections.find(
+    (courseSection) => String(courseSection.id) === String(courseSectionId)
+  );
+}
+
+function findWeekByDate(weeks, dateValue) {
+  if (!dateValue) return null;
+
+  return weeks.find(
+    (week) => dateValue >= week.start_date && dateValue <= week.end_date
+  );
+}
+
 function getInitialFormFromOptions(options) {
   const firstWeek = options.weeks[0];
+  const firstCourseSection = options.course_sections[0];
+  const firstRoomId = firstCourseSection?.room_id || options.rooms[0]?.id || "";
+  const firstTeacherId =
+    firstCourseSection?.teacher_id || options.teachers[0]?.id || "";
 
   return {
     ...initialForm,
     studyDate: firstWeek?.start_date || "",
     day: getDayLabel(firstWeek?.start_date),
-    roomId: String(options.rooms[0]?.id || ""),
-    classId: String(options.classes[0]?.id || ""),
-    courseSectionId: String(options.course_sections[0]?.id || ""),
-    teacherId: String(options.teachers[0]?.id || ""),
+    roomId: String(firstRoomId),
+    classId: String(firstCourseSection?.class_id || ""),
+    courseSectionId: String(firstCourseSection?.id || ""),
+    teacherId: String(firstTeacherId),
     weekId: String(firstWeek?.id || ""),
   };
 }
@@ -98,10 +122,26 @@ function getApiErrorMessage(error) {
   return error.message || "Không thể lưu lịch phòng máy.";
 }
 
+function FloatingField({ label, required = false, children, className = "" }) {
+  return (
+    <label className={`relative block pt-2 ${className}`}>
+      <span className="absolute left-4 top-0 z-10 bg-white px-2 text-sm font-semibold text-slate-500">
+        {label}
+        {required ? " (*)" : ""}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+const controlClassName =
+  "h-16 w-full rounded-2xl border border-slate-300 bg-white px-5 text-base font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
+
 export default function ScheduleFormPage() {
   const navigate = useNavigate();
   const { scheduleId } = useParams();
   const isEditing = Boolean(scheduleId);
+
   const [formData, setFormData] = useState(initialForm);
   const [options, setOptions] = useState(emptyOptions);
   const [error, setError] = useState("");
@@ -112,23 +152,42 @@ export default function ScheduleFormPage() {
     let isMounted = true;
 
     const requests = [getComputerLabScheduleOptionsFromApi()];
+
     if (isEditing) {
       requests.push(getComputerLabScheduleFromApi(scheduleId));
     }
 
     Promise.all(requests)
       .then(([optionsResponse, historyResponse]) => {
-        if (!isMounted) {
-          return;
-        }
+        if (!isMounted) return;
 
         const nextOptions = optionsResponse.data || emptyOptions;
         setOptions(nextOptions);
-        setFormData(
-          isEditing
-            ? mapHistoryToForm(historyResponse.data)
-            : getInitialFormFromOptions(nextOptions),
-        );
+
+        if (isEditing) {
+          const mappedForm = mapHistoryToForm(historyResponse.data);
+          const relatedCourseSection = getCourseSectionRelatedData(
+            nextOptions,
+            mappedForm.courseSectionId
+          );
+
+          setFormData({
+            ...mappedForm,
+            classId: String(
+              relatedCourseSection?.class_id || mappedForm.classId || ""
+            ),
+            teacherId: String(
+              mappedForm.teacherId ||
+                relatedCourseSection?.teacher_id ||
+                nextOptions.teachers[0]?.id ||
+                ""
+            ),
+          });
+
+          return;
+        }
+
+        setFormData(getInitialFormFromOptions(nextOptions));
       })
       .catch((apiError) => {
         if (isMounted) {
@@ -157,12 +216,28 @@ export default function ScheduleFormPage() {
       };
 
       if (name === "studyDate") {
-        const matchedWeek = options.weeks.find((week) => (
-          value >= week.start_date && value <= week.end_date
-        ));
+        const matchedWeek = findWeekByDate(options.weeks, value);
 
         nextData.day = getDayLabel(value);
-        nextData.weekId = matchedWeek ? String(matchedWeek.id) : currentData.weekId;
+        nextData.weekId = matchedWeek ? String(matchedWeek.id) : "";
+      }
+
+      if (name === "courseSectionId") {
+        const matchedCourseSection = getCourseSectionRelatedData(
+          options,
+          value
+        );
+
+        nextData.classId = String(matchedCourseSection?.class_id || "");
+        nextData.teacherId = String(
+          matchedCourseSection?.teacher_id ||
+            currentData.teacherId ||
+            options.teachers[0]?.id ||
+            ""
+        );
+        nextData.roomId = String(
+          matchedCourseSection?.room_id || currentData.roomId || ""
+        );
       }
 
       return nextData;
@@ -172,24 +247,36 @@ export default function ScheduleFormPage() {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
+    const weekId = formData.weekId;
+
     if (
-      !formData.studyDate
-      || !formData.day
-      || !formData.roomId
-      || !formData.courseSectionId
-      || !formData.teacherId
-      || !formData.weekId
+      !formData.studyDate ||
+      !formData.day ||
+      !formData.roomId ||
+      !formData.courseSectionId ||
+      !formData.teacherId
     ) {
-      setError("Vui lòng nhập đầy đủ thông tin bắt buộc của lịch phòng máy.");
+      setError(
+        "Vui lòng nhập đầy đủ lớp học phần, phòng máy, giảng viên và ngày học."
+      );
+      return;
+    }
+
+    if (!weekId) {
+      setError(
+        "Ngày học chưa thuộc tuần nào. Vui lòng chọn ngày nằm trong tuần đã có."
+      );
       return;
     }
 
     if (
-      Number(formData.lessonStart) < 1
-      || Number(formData.lessonEnd) > 12
-      || Number(formData.lessonStart) > Number(formData.lessonEnd)
+      Number(formData.lessonStart) < 1 ||
+      Number(formData.lessonEnd) > 12 ||
+      Number(formData.lessonStart) > Number(formData.lessonEnd)
     ) {
-      setError("Khoảng tiết phải từ tiết 1 đến tiết 12 và tiết bắt đầu không được lớn hơn tiết kết thúc.");
+      setError(
+        "Khoảng tiết phải từ tiết 1 đến tiết 12 và tiết bắt đầu không được lớn hơn tiết kết thúc."
+      );
       return;
     }
 
@@ -202,13 +289,15 @@ export default function ScheduleFormPage() {
         ma_lop: formData.classId ? Number(formData.classId) : null,
         ma_lop_hoc_phan: Number(formData.courseSectionId),
         ma_giang_vien: Number(formData.teacherId),
-        ma_tuan: Number(formData.weekId),
+        ma_tuan: Number(weekId),
         ngay_hoc_cu_the: formData.studyDate,
         thu_trong_tuan: formData.day,
         so_tiet_bat_dau: Number(formData.lessonStart),
         so_tiet_ket_thuc: Number(formData.lessonEnd),
         loai_lich: formData.scheduleType,
-        ma_dat_phong_may: formData.bookingRequestId ? Number(formData.bookingRequestId) : null,
+        ma_dat_phong_may: formData.bookingRequestId
+          ? Number(formData.bookingRequestId)
+          : null,
         trang_thai: formData.status,
         ghi_chu: formData.note || null,
       };
@@ -230,124 +319,128 @@ export default function ScheduleFormPage() {
   return (
     <AppShell
       role="admin"
-      title={isEditing ? "Sửa lịch phòng máy" : "Thêm lịch phòng máy"}
-      subtitle="Cập nhật lịch học và lịch sử dụng phòng máy"
+      title={isEditing ? "Sửa lịch phòng máy" : "Thêm lịch phòng thủ công"}
+      subtitle="Tạo lịch sử dụng phòng máy theo lớp học phần, phòng và khoảng tiết"
     >
-      <SectionCard title="Thông tin lịch phòng máy">
+      <SectionCard
+        title={isEditing ? "Cập nhật lịch phòng" : "Thêm lịch phòng thủ công"}
+      >
         {isLoading ? (
           <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
             Đang tải dữ liệu lịch phòng máy...
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="grid gap-5 lg:grid-cols-2">
-            <label className="space-y-2">
-              <span className="text-sm font-semibold text-slate-700">Ngày học cụ thể</span>
+          <form onSubmit={handleSubmit} className="mx-auto grid max-w-4xl gap-5">
+            <FloatingField label="Lớp học phần" required>
+              <select
+                name="courseSectionId"
+                value={formData.courseSectionId}
+                onChange={handleChange}
+                className={`${controlClassName} border-blue-500 ring-2 ring-blue-100`}
+              >
+                <option value="">Chọn lớp học phần</option>
+                {options.course_sections.map((courseSection) => (
+                  <option key={courseSection.id} value={courseSection.id}>
+                    {courseSection.code} - {courseSection.subject}
+                  </option>
+                ))}
+              </select>
+            </FloatingField>
+
+            <FloatingField label="Phòng máy" required>
+              <select
+                name="roomId"
+                value={formData.roomId}
+                onChange={handleChange}
+                className={controlClassName}
+              >
+                <option value="">Chọn phòng máy</option>
+                {options.rooms.map((room) => (
+                  <option key={room.id} value={room.id}>
+                    {room.code} - {room.name}
+                  </option>
+                ))}
+              </select>
+            </FloatingField>
+
+            <FloatingField label="Ngày học" required>
               <input
                 type="date"
                 name="studyDate"
                 value={formData.studyDate}
                 onChange={handleChange}
-                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                className={controlClassName}
               />
-            </label>
+            </FloatingField>
 
-            <label className="space-y-2">
-              <span className="text-sm font-semibold text-slate-700">Thứ</span>
-              <input
-                type="text"
-                value={formData.day}
-                readOnly
-                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-700 outline-none"
-              />
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-sm font-semibold text-slate-700">Phòng học</span>
-              <select name="roomId" value={formData.roomId} onChange={handleChange} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-blue-500">
-                <option value="">Chọn phòng máy</option>
-                {options.rooms.map((room) => <option key={room.id} value={room.id}>{room.code} - {room.name}</option>)}
-              </select>
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-sm font-semibold text-slate-700">Lớp học phần - Môn học</span>
-              <select name="courseSectionId" value={formData.courseSectionId} onChange={handleChange} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-blue-500">
-                <option value="">Chọn lớp học phần</option>
-                {options.course_sections.map((courseSection) => (
-                  <option key={courseSection.id} value={courseSection.id}>{courseSection.code} - {courseSection.subject}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-sm font-semibold text-slate-700">Lớp</span>
-              <select name="classId" value={formData.classId} onChange={handleChange} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-blue-500">
-                <option value="">Không chọn lớp</option>
-                {options.classes.map((schoolClass) => <option key={schoolClass.id} value={schoolClass.id}>{schoolClass.code}</option>)}
-              </select>
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-sm font-semibold text-slate-700">Giảng viên</span>
-              <select name="teacherId" value={formData.teacherId} onChange={handleChange} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-blue-500">
-                <option value="">Chọn giảng viên</option>
-                {options.teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.code} - {teacher.name}</option>)}
-              </select>
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-sm font-semibold text-slate-700">Tuần</span>
-              <select name="weekId" value={formData.weekId} onChange={handleChange} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-blue-500">
-                <option value="">Chọn tuần</option>
-                {options.weeks.map((week) => (
-                  <option key={week.id} value={week.id}>Tuần {week.number} ({week.start_date} - {week.end_date})</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-sm font-semibold text-slate-700">Loại lịch</span>
-              <select name="scheduleType" value={formData.scheduleType} onChange={handleChange} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-blue-500">
-                {scheduleTypes.map((type) => <option key={type} value={type}>{type}</option>)}
-              </select>
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-sm font-semibold text-slate-700">Trạng thái</span>
-              <select name="status" value={formData.status} onChange={handleChange} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-blue-500">
-                {scheduleStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
-              </select>
-            </label>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="space-y-2">
-                <span className="text-sm font-semibold text-slate-700">Từ tiết</span>
-                <select name="lessonStart" value={formData.lessonStart} onChange={handleChange} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-blue-500">
-                  {lessonOptions.map((lesson) => <option key={lesson} value={lesson}>Tiết {lesson}</option>)}
+            <div className="grid gap-5 sm:grid-cols-2">
+              <FloatingField label="Tiết bắt đầu">
+                <select
+                  name="lessonStart"
+                  value={formData.lessonStart}
+                  onChange={handleChange}
+                  className={controlClassName}
+                >
+                  {lessonOptions.map((lesson) => (
+                    <option key={lesson} value={lesson}>
+                      Tiết {lesson}
+                    </option>
+                  ))}
                 </select>
-              </label>
-              <label className="space-y-2">
-                <span className="text-sm font-semibold text-slate-700">Đến tiết</span>
-                <select name="lessonEnd" value={formData.lessonEnd} onChange={handleChange} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-blue-500">
-                  {lessonOptions.map((lesson) => <option key={lesson} value={lesson}>Tiết {lesson}</option>)}
+              </FloatingField>
+
+              <FloatingField label="Tiết kết thúc">
+                <select
+                  name="lessonEnd"
+                  value={formData.lessonEnd}
+                  onChange={handleChange}
+                  className={controlClassName}
+                >
+                  {lessonOptions.map((lesson) => (
+                    <option key={lesson} value={lesson}>
+                      Tiết {lesson}
+                    </option>
+                  ))}
                 </select>
-              </label>
+              </FloatingField>
             </div>
 
-            <label className="space-y-2 lg:col-span-2">
-              <span className="text-sm font-semibold text-slate-700">Ghi chú</span>
-              <input type="text" name="note" value={formData.note} onChange={handleChange} placeholder="Ghi chú lịch phòng máy" className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-blue-500" />
-            </label>
+            <FloatingField label="Loại lịch">
+              <select
+                name="scheduleType"
+                value={formData.scheduleType}
+                onChange={handleChange}
+                className={controlClassName}
+              >
+                {scheduleTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </FloatingField>
 
             {error && (
-              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 lg:col-span-2">{error}</div>
+              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                {error}
+              </div>
             )}
 
-            <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 lg:col-span-2">
-              <Link to="/admin/schedules" className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Hủy</Link>
-              <button type="submit" disabled={isSaving} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400">
+            <div className="grid gap-3 border-t border-slate-200 pt-5 sm:grid-cols-[1fr_auto]">
+              <Link
+                to="/admin/schedules"
+                className="inline-flex h-12 items-center justify-center rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Hủy
+              </Link>
+
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-8 text-sm font-bold uppercase text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
                 <Save size={16} />
-                {isSaving ? "Đang lưu" : "Lưu lịch"}
+                {isSaving ? "Đang lưu" : "Lưu lịch phòng"}
               </button>
             </div>
           </form>

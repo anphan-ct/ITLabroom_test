@@ -602,7 +602,7 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
                   {renderFieldError("nien_khoa")}
                 </label>
 
-                <label className="space-y-2 lg:col-span-2">
+                <label className="space-y-2">
                   <span className="text-sm font-semibold text-slate-700">Lớp học</span>
                   <select
                     name="ma_lop"
@@ -620,13 +620,6 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
                   {renderFieldError("ma_lop")}
                 </label>
               </>
-            )}
-
-            {/* Thông báo vai trò Admin không cần thông tin riêng */}
-            {isAdminRole && (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 lg:col-span-2">
-                Vai trò Admin không cần thêm thông tin riêng (mã giảng viên, mã sinh viên, lớp học, phòng ban).
-              </div>
             )}
 
             {/* Lỗi chung từ server */}

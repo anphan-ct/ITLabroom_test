@@ -18,11 +18,23 @@ export function mapComputerLabSchedule(item) {
     lessonStart: item.so_tiet_bat_dau,
     lessonEnd: item.so_tiet_ket_thuc,
     time: `Tiết ${item.so_tiet_bat_dau}-${item.so_tiet_ket_thuc}`,
-    scheduleType: item.loai_lich,
+    scheduleType: getScheduleTypeLabel(item.loai_lich),
     status: attendanceWindow.statusLabel || item.trang_thai,
     attendanceWindow,
     note: item.ghi_chu || "",
   };
+}
+
+function getScheduleTypeLabel(scheduleType) {
+  const labels = {
+    LyThuyet: "Lý thuyết",
+    ThucHanh: "Thực hành",
+    ChinhThuc: "Chính thức",
+    DatPhong: "Đặt phòng",
+    BoSung: "Bổ sung",
+  };
+
+  return labels[scheduleType] || scheduleType || "-";
 }
 
 function normalizeAttendanceWindow(attendanceWindow, studyDate, lessonStart, lessonEnd) {

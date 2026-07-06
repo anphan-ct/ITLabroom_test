@@ -19,11 +19,24 @@ class RoomUsageFormOptionsResource extends JsonResource
                 'id' => $class->id,
                 'code' => $class->ma_lop,
             ]),
-            'course_sections' => $this->resource['courseSections']->map(fn ($courseSection) => [
-                'id' => $courseSection->id,
-                'code' => $courseSection->ma_lop_hoc_phan,
-                'subject' => $courseSection->subject?->ten_mon,
-            ]),
+            'course_sections' => $this->resource['courseSections']->map(function ($courseSection) {
+                $assignment = $courseSection->assignments->first();
+                $teacher = $assignment?->teacher;
+
+                return [
+                    'id' => $courseSection->id,
+                    'code' => $courseSection->ma_lop_hoc_phan,
+                    'subject' => $courseSection->subject?->ten_mon,
+                    'class_id' => $courseSection->ma_lop,
+                    'class_code' => $courseSection->class?->ma_lop,
+                    'room_id' => $courseSection->ma_phong,
+                    'room_code' => $courseSection->room?->ma_phong,
+                    'room_name' => $courseSection->room?->ten_phong,
+                    'teacher_id' => $teacher?->id,
+                    'teacher_code' => $teacher?->ma_giang_vien,
+                    'teacher_name' => $teacher?->user?->ho_ten,
+                ];
+            }),
             'teachers' => $this->resource['teachers']->map(fn ($teacher) => [
                 'id' => $teacher->id,
                 'code' => $teacher->ma_giang_vien,

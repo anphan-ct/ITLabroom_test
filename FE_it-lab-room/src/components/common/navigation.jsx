@@ -35,7 +35,15 @@ export const roleMenus = {
         { to: "/admin/subjects", label: "Môn học", icon: BookOpen },
       ],
     },
-    { to: "/admin/schedules", label: "Lịch phòng máy", icon: CalendarDays },
+    {
+      to: "/admin/schedules",
+      label: "Quản lý lịch & đặt phòng",
+      icon: CalendarDays,
+      children: [
+        { to: "/admin/schedules", label: "Lịch sử dụng phòng", icon: CalendarDays },
+        { to: "/admin/room-bookings", label: "Yêu cầu đặt phòng", icon: ClipboardList },
+      ],
+    },
     {
       to: "/admin/rooms",
       label: "Quản lý Phòng máy",
@@ -49,7 +57,7 @@ export const roleMenus = {
     { to: "/admin/computer-transfers", label: "Điều chuyển máy", icon: ArrowRightLeft },
     {
       to: "/admin/maintenance",
-      label: "Sự cố & bảo trì",
+      label: "Bảo trì & sự cố",
       icon: AlertTriangle,
       children: [
         { to: "/admin/maintenance", label: "Báo cáo sự cố", icon: AlertTriangle },
@@ -59,7 +67,6 @@ export const roleMenus = {
     },
     { to: "/admin/loan-approvals", label: "Duyệt mượn máy", icon: FileText },
     { to: "/admin/return-approvals", label: "Xác nhận trả máy", icon: RotateCcw },
-    { to: "/admin/room-bookings", label: "Đăng ký phòng", icon: ClipboardList },
   ],
   teacher: [
     { to: "/teacher/schedules", label: "Lịch giảng dạy", icon: CalendarDays },
@@ -87,7 +94,6 @@ export const roleMenus = {
   ],
   student: [
     { to: "/student/schedules", label: "Lịch học", icon: CalendarDays },
-    { to: "/student/computers", label: "Tra cứu máy", icon: Monitor },
     { to: "/student/incidents", label: "Báo hỏng", icon: AlertTriangle },
     { to: "/student/attendance", label: "Điểm danh", icon: ClipboardCheck },
   ],

@@ -75,6 +75,7 @@ export const CONST_APIS = {
   SCHEDULES: {
     INDEX: "/api/admin/computer-lab-schedules",
     STORE: "/api/admin/computer-lab-schedules",
+    IMPORT: "/api/admin/computer-lab-schedules/import",
     OPTIONS: "/api/admin/computer-lab-schedules/options",
     SHOW: (id) => `/api/admin/computer-lab-schedules/${id}`,
     UPDATE: (id) => `/api/admin/computer-lab-schedules/${id}`,

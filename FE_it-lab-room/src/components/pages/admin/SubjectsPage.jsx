@@ -80,7 +80,7 @@ export default function SubjectsPage() {
   };
 
   return (
-    <AppShell role="admin" title="Quản lý môn học" subtitle="Danh mục môn học trong khoa">
+    <AppShell role="admin" title="Quản lý môn học">
       <SectionCard
         rightAction={
           <div className="flex flex-wrap items-center gap-2">
