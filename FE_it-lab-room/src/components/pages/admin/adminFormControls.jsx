@@ -11,6 +11,7 @@ export function TextInput({ value, onChange, placeholder, type = "text", disable
   return (
     <input
       type={type}
+      lang="vi"
       value={value}
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}

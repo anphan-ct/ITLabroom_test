@@ -56,8 +56,15 @@ export const roleMenus = {
         { to: "/admin/repair-logs", label: "Nhật ký sửa chữa", icon: ClipboardList },
       ],
     },
-    { to: "/admin/loan-approvals", label: "Duyệt mượn máy", icon: FileText },
-    { to: "/admin/return-approvals", label: "Xác nhận trả máy", icon: RotateCcw },
+    {
+      to: "/admin/loan-return/loans",
+      label: "Mượn & Trả máy",
+      icon: FileText,
+      children: [
+        { to: "/admin/loan-return/loans", label: "Duyệt mượn máy", icon: FileText },
+        { to: "/admin/loan-return/returns", label: "Xác nhận trả máy", icon: RotateCcw },
+      ],
+    },
     { to: "/admin/room-bookings", label: "Đăng ký phòng", icon: ClipboardList },
   ],
   teacher: [

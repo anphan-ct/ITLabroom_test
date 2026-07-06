@@ -8,17 +8,25 @@ use App\Http\Controllers\admin\ComputerLabScheduleController;
 use App\Http\Controllers\admin\ComputerTransferController;
 use App\Http\Controllers\admin\CourseSectionController;
 use App\Http\Controllers\admin\DepartmentController;
+use App\Http\Controllers\admin\IncidentReportController as AdminIncidentReportController;
+use App\Http\Controllers\admin\MaintenanceTicketController as AdminMaintenanceTicketController;
+use App\Http\Controllers\admin\RepairLogController as AdminRepairLogController;
 use App\Http\Controllers\admin\RoomBookingController as AdminRoomBookingController;
 use App\Http\Controllers\admin\RoomController;
 use App\Http\Controllers\admin\SchoolClassController;
 use App\Http\Controllers\admin\SubjectController;
 use App\Http\Controllers\admin\UserController;
 use App\Http\Controllers\common\AuthController as CommonAuthController;
+use App\Http\Controllers\common\IncidentReportController as CommonIncidentReportController;
 use App\Http\Controllers\student\AuthController as StudentAuthController;
 use App\Http\Controllers\student\ComputerLabScheduleController as StudentComputerLabScheduleController;
 use App\Http\Controllers\teacher\AuthController as TeacherAuthController;
 use App\Http\Controllers\teacher\ComputerLabScheduleController as TeacherComputerLabScheduleController;
 use App\Http\Controllers\teacher\RoomBookingController as TeacherRoomBookingController;
+use App\Http\Controllers\teacher\LoanRequestController as TeacherLoanRequestController;
+use App\Http\Controllers\teacher\ReturnRequestController as TeacherReturnRequestController;
+use App\Http\Controllers\admin\LoanRequestController as AdminLoanRequestController;
+use App\Http\Controllers\admin\ReturnRequestController as AdminReturnRequestController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -45,11 +53,34 @@ Route::middleware(['auth:sanctum', 'abilities:teacher'])->group(function () {
     Route::get('/teacher/room-bookings', [TeacherRoomBookingController::class, 'index']);
     Route::get('/teacher/room-bookings/availability', [TeacherRoomBookingController::class, 'availability']);
     Route::post('/teacher/room-bookings', [TeacherRoomBookingController::class, 'store']);
+
+    // Báo cáo sự cố — giảng viên
+    Route::get('/teacher/incident-reports', [CommonIncidentReportController::class, 'index']);
+    Route::post('/teacher/incident-reports', [CommonIncidentReportController::class, 'store']);
+
+    // Phòng máy & máy tính/thiết bị — chỉ đọc (dùng cho form báo cáo sự cố)
+    Route::get('/teacher/rooms', [RoomController::class, 'index']);
+    Route::get('/teacher/rooms/{room}/computers', [RoomController::class, 'computers']);
+
+    // Mượn / trả máy (Giảng viên)
+    Route::get('/teacher/loan-requests', [TeacherLoanRequestController::class, 'index']);
+    Route::post('/teacher/loan-requests', [TeacherLoanRequestController::class, 'store']);
+    Route::get('/teacher/return-requests', [TeacherReturnRequestController::class, 'index']);
+    Route::post('/teacher/return-requests', [TeacherReturnRequestController::class, 'store']);
 });
 
 // Nhóm API dành cho Sinh viên
-Route::middleware(['auth:sanctum', 'abilities:student'])
-    ->get('/student/computer-lab-schedules', [StudentComputerLabScheduleController::class, 'index']);
+Route::middleware(['auth:sanctum', 'abilities:student'])->group(function () {
+    Route::get('/student/computer-lab-schedules', [StudentComputerLabScheduleController::class, 'index']);
+
+    // Báo cáo sự cố — sinh viên
+    Route::get('/student/incident-reports', [CommonIncidentReportController::class, 'index']);
+    Route::post('/student/incident-reports', [CommonIncidentReportController::class, 'store']);
+
+    // Phòng máy & máy tính/thiết bị — chỉ đọc (dùng cho form báo cáo sự cố)
+    Route::get('/student/rooms', [RoomController::class, 'index']);
+    Route::get('/student/rooms/{room}/computers', [RoomController::class, 'computers']);
+});
 
 // Nhóm API dành cho Admin
 Route::middleware(['auth:sanctum', 'abilities:admin'])->group(function () {
@@ -59,6 +90,7 @@ Route::middleware(['auth:sanctum', 'abilities:admin'])->group(function () {
         Route::get('/', [UserController::class, 'index']);
         Route::post('/', [UserController::class, 'store']);
         Route::post('/import', [UserController::class, 'import']);
+        Route::get('/roles', [UserController::class, 'getRoles']);
         Route::get('/{user}', [UserController::class, 'show']);
         Route::put('/{user}', [UserController::class, 'update']);
         Route::patch('/{user}/toggle-status', [UserController::class, 'toggleStatus']);
@@ -145,5 +177,35 @@ Route::middleware(['auth:sanctum', 'abilities:admin'])->group(function () {
     Route::prefix('admin/computer-transfers')->group(function () {
         Route::get('/', [ComputerTransferController::class, 'index']);
         Route::post('/', [ComputerTransferController::class, 'store']);
+    });
+
+    // Nhóm API quản lý báo cáo sự cố (admin)
+    Route::prefix('admin/incident-reports')->group(function () {
+        Route::get('/', [AdminIncidentReportController::class, 'index']);
+        Route::patch('/{incidentReport}/status', [AdminIncidentReportController::class, 'updateStatus']);
+    });
+
+    // Nhóm API quản lý phiếu bảo trì (admin)
+    Route::prefix('admin/maintenance-tickets')->group(function () {
+        Route::get('/', [AdminMaintenanceTicketController::class, 'index']);
+        Route::post('/', [AdminMaintenanceTicketController::class, 'store']);
+        Route::put('/{maintenanceTicket}', [AdminMaintenanceTicketController::class, 'update']);
+    });
+
+    // Nhóm API quản lý nhật ký sửa chữa (admin)
+    Route::prefix('admin/repair-logs')->group(function () {
+        Route::get('/', [AdminRepairLogController::class, 'index']);
+        Route::post('/', [AdminRepairLogController::class, 'store']);
+    });
+
+    // Mượn / trả máy (Admin)
+    Route::prefix('admin/loan-requests')->group(function () {
+        Route::get('/', [AdminLoanRequestController::class, 'index']);
+        Route::patch('/{loanRequest}/approval', [AdminLoanRequestController::class, 'approve']);
+    });
+    
+    Route::prefix('admin/return-requests')->group(function () {
+        Route::get('/', [AdminReturnRequestController::class, 'index']);
+        Route::patch('/{returnRequest}/confirmation', [AdminReturnRequestController::class, 'confirm']);
     });
 });

@@ -13,7 +13,7 @@ class ComputerTransferHistory extends Model
     protected $table = 'lich_su_dieu_chuyen_may';
 
     protected $fillable = [
-        'ma_may_tinh',
+        'may_tinh_ids',
         'ma_phong_cu',
         'ma_phong_moi',
         'ma_nguoi_dieu_chuyen',
@@ -23,13 +23,14 @@ class ComputerTransferHistory extends Model
     ];
 
     protected $casts = [
+        'may_tinh_ids' => 'array',
         'thoi_gian_dieu_chuyen' => 'datetime',
     ];
 
     // Quan hệ: máy tính được điều chuyển
-    public function computer(): BelongsTo
+    public function computers()
     {
-        return $this->belongsTo(Computer::class, 'ma_may_tinh');
+        return Computer::whereIn('id', $this->may_tinh_ids ?? [])->get();
     }
 
     // Quan hệ: phòng cũ (trước khi điều chuyển)

@@ -11,6 +11,7 @@ export const CONST_APIS = {
     INDEX: "/api/admin/users",
     STORE: "/api/admin/users",
     IMPORT: "/api/admin/users/import",
+    ROLES: "/api/admin/users/roles",
     SHOW: (id) => `/api/admin/users/${id}`,
     UPDATE: (id) => `/api/admin/users/${id}`,
     TOGGLE_STATUS: (id) => `/api/admin/users/${id}/toggle-status`,
@@ -96,7 +97,56 @@ export const CONST_APIS = {
     INDEX: "/api/admin/computer-transfers",
     STORE: "/api/admin/computer-transfers",
   },
+  // Báo cáo sự cố (admin)
+  INCIDENT_REPORTS: {
+    INDEX: "/api/admin/incident-reports",
+    UPDATE_STATUS: (id) => `/api/admin/incident-reports/${id}/status`,
+  },
+  // Phiếu bảo trì (admin)
+  MAINTENANCE_TICKETS: {
+    INDEX: "/api/admin/maintenance-tickets",
+    STORE: "/api/admin/maintenance-tickets",
+    UPDATE: (id) => `/api/admin/maintenance-tickets/${id}`,
+  },
+  // Nhật ký sửa chữa (admin)
+  REPAIR_LOGS: {
+    INDEX: "/api/admin/repair-logs",
+    STORE: "/api/admin/repair-logs",
+  },
+  // Báo cáo sự cố (giảng viên)
+  TEACHER_INCIDENT_REPORTS: {
+    INDEX: "/api/teacher/incident-reports",
+    STORE: "/api/teacher/incident-reports",
+  },
+  // Báo cáo sự cố (sinh viên)
+  STUDENT_INCIDENT_REPORTS: {
+    INDEX: "/api/student/incident-reports",
+    STORE: "/api/student/incident-reports",
+  },
+  // Phòng máy — giảng viên (chỉ đọc, dùng cho form báo cáo sự cố)
+  TEACHER_ROOMS: {
+    INDEX: "/api/teacher/rooms",
+    COMPUTERS: (id) => `/api/teacher/rooms/${id}/computers`,
+  },
+  // Phòng máy — sinh viên (chỉ đọc, dùng cho form báo cáo sự cố)
+  STUDENT_ROOMS: {
+    INDEX: "/api/student/rooms",
+    COMPUTERS: (id) => `/api/student/rooms/${id}/computers`,
+  },
+  LOAN_REQUESTS: {
+    ADMIN_INDEX: "/api/admin/loan-requests",
+    ADMIN_APPROVAL: (id) => `/api/admin/loan-requests/${id}/approval`,
+    TEACHER_INDEX: "/api/teacher/loan-requests",
+    TEACHER_STORE: "/api/teacher/loan-requests",
+  },
+  RETURN_REQUESTS: {
+    ADMIN_INDEX: "/api/admin/return-requests",
+    ADMIN_CONFIRMATION: (id) => `/api/admin/return-requests/${id}/confirmation`,
+    TEACHER_INDEX: "/api/teacher/return-requests",
+    TEACHER_STORE: "/api/teacher/return-requests",
+  },
 };
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+
 
