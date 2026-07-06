@@ -1,47 +1,58 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { FileText, Search } from "lucide-react";
 import AppShell from "../../common/AppShell";
 import DataTable from "../../common/DataTable";
 import LoanRequestForm from "../../common/LoanRequestForm";
 import SectionCard from "../../common/SectionCard";
 import StatCard from "../../common/StatCard";
-import { loanRequests } from "../../../data/mockData";
+import { loanRequestService } from "../../../services/loanRequest.service";
 
-const normalizeLoanRequest = (request) => ({
-  ...request,
-  teacher: request.teacher || request.teacherName,
-  department: request.department || request.departmentName,
-  room: request.room || request.roomCode,
-  borrowedAt: request.borrowedAt,
-  reason: request.reason || request.purpose,
-});
+const STATUS_MAP = {
+  pending: { label: "Chờ duyệt", color: "text-amber-600 bg-amber-50" },
+  approved: { label: "Đã duyệt", color: "text-green-600 bg-green-50" },
+  rejected: { label: "Từ chối", color: "text-rose-600 bg-rose-50" },
+};
 
 export default function LoanRequestsManagePage() {
-  const [requests, setRequests] = useState(() => loanRequests.map(normalizeLoanRequest));
+  const [requests, setRequests] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchKeyword, setSearchKeyword] = useState("");
+  const [error, setError] = useState("");
+
+  const fetchRequests = async () => {
+    try {
+      setIsLoading(true);
+      setError("");
+      const response = await loanRequestService.getTeacherLoanRequests();
+      if (response.status) {
+        setRequests(response.data?.data || []);
+      }
+    } catch (err) {
+      setError("Không thể tải danh sách phiếu mượn.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRequests();
+  }, []);
+
   const filteredRequests = useMemo(() => {
     const keyword = searchKeyword.trim().toLowerCase();
 
-    return requests.filter((request) => {
-      const searchContent = [request.code, request.teacher, request.department, request.room, request.quantity, request.borrowedAt, request.reason].join(" ").toLowerCase();
+    return requests.map(req => ({
+      ...req,
+      code: req.ma_phieu_muon,
+      quantity: req.so_luong,
+      borrowedAt: new Date(req.ngay_muon).toLocaleString('vi-VN'),
+      reason: req.ly_do_muon,
+      statusLabel: STATUS_MAP[req.trang_thai]?.label || req.trang_thai,
+    })).filter((request) => {
+      const searchContent = [request.code, request.quantity, request.borrowedAt, request.reason, request.statusLabel].join(" ").toLowerCase();
       return !keyword || searchContent.includes(keyword);
     });
   }, [requests, searchKeyword]);
-
-  const createLoanRequest = (loanRequestData) => {
-    setRequests((currentRequests) => {
-      const nextId = Math.max(0, ...currentRequests.map((request) => request.id)) + 1;
-
-      return [
-        {
-          id: nextId,
-          code: `PM-${String(nextId).padStart(4, "0")}`,
-          ...loanRequestData,
-        },
-        ...currentRequests,
-      ];
-    });
-  };
 
   return (
     <AppShell role="teacher" title="Quản lý phiếu mượn" subtitle="Tạo, theo dõi và xử lý phiếu mượn thiết bị phòng máy">
@@ -49,9 +60,15 @@ export default function LoanRequestsManagePage() {
         <StatCard title="Tổng phiếu" value={requests.length.toString().padStart(2, "0")} desc="Phiếu mượn trong hệ thống" icon={<FileText size={22} />} />
       </div>
 
+      {error && (
+        <div className="mt-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+          {error}
+        </div>
+      )}
+
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.5fr)]">
         <SectionCard title="Tạo phiếu mượn">
-          <LoanRequestForm onCreate={createLoanRequest} />
+          <LoanRequestForm onSuccess={fetchRequests} />
         </SectionCard>
 
         <SectionCard
@@ -70,14 +87,24 @@ export default function LoanRequestsManagePage() {
           }
         >
           <DataTable
+            isLoading={isLoading}
             columns={[
               { key: "code", title: "Mã phiếu" },
-              { key: "teacher", title: "Giảng viên" },
-              { key: "department", title: "Phòng ban" },
-              { key: "room", title: "Phòng máy" },
               { key: "quantity", title: "Số lượng" },
               { key: "borrowedAt", title: "Ngày mượn" },
               { key: "reason", title: "Lý do mượn" },
+              {
+                key: "trang_thai",
+                title: "Trạng thái",
+                render: (_, item) => {
+                  const style = STATUS_MAP[item.trang_thai] || { label: item.trang_thai, color: "text-slate-600 bg-slate-50" };
+                  return (
+                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${style.color}`}>
+                      {style.label}
+                    </span>
+                  );
+                }
+              },
             ]}
             data={filteredRequests}
           />

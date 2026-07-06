@@ -41,7 +41,7 @@ class ComputerUpdateRequest extends FormRequest
             'chuot' => ['nullable', 'string', 'max:255'],
             'hdd' => ['nullable', 'string', 'max:255'],
             'ssd' => ['nullable', 'string', 'max:255'],
-            'trang_thai' => ['required', 'string', 'in:active,broken,maintenance'],
+            'trang_thai' => ['required', 'string', 'in:active,broken,maintenance,borrowed'],
             'ghi_chu' => ['nullable', 'string'],
         ];
     }

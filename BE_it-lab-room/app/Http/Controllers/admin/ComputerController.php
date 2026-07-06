@@ -12,11 +12,11 @@ use Throwable;
 
 class ComputerController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         try {
            
-            $computers = Computer::query()
+            $query = Computer::query()
                 ->select([
                     'id',
                     'ma_phong',
@@ -35,9 +35,13 @@ class ComputerController extends Controller
                     'trang_thai',
                     'ghi_chu',
                 ])
-                ->with('room:id,ma_phong,ten_phong')
-                ->orderBy('ma_may')
-                ->get();
+                ->with('room:id,ma_phong,ten_phong');
+
+            if ($request->filled('ma_phong') && $request->query('ma_phong') !== 'all') {
+                $query->where('ma_phong', $request->query('ma_phong'));
+            }
+
+            $computers = $query->orderBy('ma_may')->get();
 
             return response()->json([
                 'status' => true,
@@ -133,11 +137,11 @@ class ComputerController extends Controller
                     ->where('ma_may_tinh', $computer->id)
                     ->delete();
 
-                DB::table('chi_tiet_muon_may')
+                DB::table('chi_tiet_phieu_muon_may')
                     ->where('ma_may_tinh', $computer->id)
                     ->delete();
 
-                DB::table('chi_tiet_tra_may')
+                DB::table('chi_tiet_phieu_tra_may')
                     ->where('ma_may_tinh', $computer->id)
                     ->delete();
 

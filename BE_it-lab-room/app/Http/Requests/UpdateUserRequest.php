@@ -24,7 +24,7 @@ class UpdateUserRequest extends FormRequest
 
         $rules = [
             // Các trường bắt buộc cho tất cả vai trò
-            'ma_vai_tro' => ['required', 'integer', 'in:1,2,3'],
+            'ma_vai_tro' => ['required', 'integer', 'exists:vai_tro,id'],
             'ho_ten' => ['required', 'string', 'max:255'],
             'email' => [
                 'required',
@@ -79,7 +79,7 @@ class UpdateUserRequest extends FormRequest
     {
         return [
             'ma_vai_tro.required' => 'Vui lòng chọn vai trò.',
-            'ma_vai_tro.in' => 'Vai trò không hợp lệ.',
+            'ma_vai_tro.exists' => 'Vai trò không hợp lệ.',
             'ho_ten.required' => 'Vui lòng nhập họ tên.',
             'ho_ten.max' => 'Họ tên không được vượt quá 255 ký tự.',
             'email.required' => 'Vui lòng nhập email.',

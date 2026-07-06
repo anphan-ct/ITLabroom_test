@@ -11,16 +11,10 @@ import {
   getDepartmentsFromApi,
   getClassesFromApi,
   importUsersFromApi,
+  getRolesFromApi,
 } from "../../../services/user.service";
 
-// Map vai trò frontend sang ma_vai_tro backend
-const roleOptions = [
-  { label: "Admin", value: 1 },
-  { label: "Sinh viên", value: 2 },
-  { label: "Giảng viên", value: 3 },
-];
-const roleQueryMap = { Admin: 1, "Giảng viên": 3, "Sinh viên": 2 };
-const genders = ["Nam", "Nữ", "Khác"];
+const genders = ["Nam", "Nữ"];
 
 /**
  * Khởi tạo form data trống với vai trò mặc định.
@@ -49,8 +43,16 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
   const { userId } = useParams();
   const [searchParams] = useSearchParams();
   const isEditing = Boolean(userId);
+  const [roles, setRoles] = useState([]);
+
+  useEffect(() => {
+    getRolesFromApi().then((res) => {
+      if (res?.data) setRoles(res.data);
+    });
+  }, []);
 
   // Xác định vai trò mặc định từ query param hoặc prop
+  const roleQueryMap = Object.fromEntries(roles.map((r) => [r.ten_vai_tro, r.id]));
   const queryRole = searchParams.get("role");
   const initialRoleId = roleQueryMap[queryRole] || roleQueryMap[defaultRole] || 2;
 
@@ -292,15 +294,22 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
     setCsvFileName(file.name);
     setCsvError("");
 
+    const isCsv = file.name.toLowerCase().endsWith('.csv');
     const reader = new FileReader();
 
-    // Thay vì onload đọc Text, ta sẽ parse ArrayBuffer
     reader.onload = (e) => {
       try {
-        const data = new Uint8Array(e.target.result);
-
-        // Đọc toàn bộ workbook (hỗ trợ tự động nhận diện cả csv, xls, xlsx)
-        const workbook = XLSX.read(data, { type: 'array' });
+        let workbook;
+        if (isCsv) {
+          // Đối với file CSV, đọc dưới dạng string (FileReader đã giải mã UTF-8)
+          // để tránh lỗi mojibake (vỡ font tiếng Việt) khi file không có BOM.
+          const text = e.target.result;
+          workbook = XLSX.read(text, { type: 'string' });
+        } else {
+          // Đối với xlsx/xls, đọc mảng byte
+          const data = new Uint8Array(e.target.result);
+          workbook = XLSX.read(data, { type: 'array' });
+        }
 
         // Lấy sheet đầu tiên
         const firstSheetName = workbook.SheetNames[0];
@@ -316,10 +325,10 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
         }
 
         // Validate dữ liệu từ mảng JSON đã được parse
-        const validRoles = ["Admin", "Giảng viên", "Sinh viên"];
-        const invalidRow = rows.find((row) => !validRoles.includes(row.role));
+        const validRoleNames = roles.map((r) => r.ten_vai_tro);
+        const invalidRow = rows.find((row) => !validRoleNames.includes(row.role));
         if (invalidRow) {
-          setCsvError(`Vai trò không hợp lệ: "${invalidRow.role}". Chỉ nhận Admin, Giảng viên, Sinh viên.`);
+          setCsvError(`Vai trò không hợp lệ: "${invalidRow.role}". Chỉ nhận ${validRoleNames.join(", ")}.`);
           setCsvRows([]);
           return;
         }
@@ -331,8 +340,12 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
       }
     };
 
-    // Đọc file dưới dạng mảng byte (bắt buộc đối với file .xlsx)
-    reader.readAsArrayBuffer(file);
+    // Chọn cách đọc file tương ứng
+    if (isCsv) {
+      reader.readAsText(file, 'UTF-8');
+    } else {
+      reader.readAsArrayBuffer(file);
+    }
   };
 
   const handleImportCsv = async () => {
@@ -345,10 +358,10 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
     try {
       // Gọi API import hàng loạt
       const response = await importUsersFromApi({ users: csvRows });
-      
+
       if (response.status) {
         const { success_count, errors } = response.data;
-        
+
         if (errors && errors.length > 0) {
           setCsvError(`Đã nhập thành công ${success_count}/${csvRows.length} tài khoản.\nCó ${errors.length} dòng lỗi:\n\n${errors.join("\n")}`);
           setToast({ type: "warning", message: `Đã nhập ${success_count}/${csvRows.length}. Vui lòng xem chi tiết lỗi.` });
@@ -384,13 +397,12 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
       {/* Toast thông báo kết quả thao tác */}
       {toast && (
         <div
-          className={`mb-4 rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${
-            toast.type === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : toast.type === "warning"
+          className={`mb-4 rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${toast.type === "success"
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+            : toast.type === "warning"
               ? "border-amber-200 bg-amber-50 text-amber-700"
               : "border-rose-200 bg-rose-50 text-rose-700"
-          }`}
+            }`}
         >
           {toast.message}
         </div>
@@ -437,9 +449,9 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
                 onChange={handleChange}
                 className={inputClass("ma_vai_tro")}
               >
-                {roleOptions.map((role) => (
-                  <option key={role.value} value={role.value}>
-                    {role.label}
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.ten_vai_tro}
                   </option>
                 ))}
               </select>
@@ -612,7 +624,7 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
                     <option value="">Chọn lớp học</option>
                     {classes.map((cls) => (
                       <option key={cls.id} value={cls.id}>
-                        {cls.class_code}
+                        {cls.ma_lop}
                       </option>
                     ))}
                   </select>
@@ -668,10 +680,10 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
                 role,code,name,email,phone,password,course,classCode,departmentCode
               </code>
               <ul className="mt-2 list-disc pl-5">
-                <li><strong>role</strong>: Admin / Giảng viên / Sinh viên</li>
+                <li><strong>role</strong>: admin / student / teacher / technician</li>
                 <li><strong>code</strong>: bắt buộc với Giảng viên, Sinh viên</li>
-                <li><strong>course</strong>, <strong>classCode</strong>: chỉ áp dụng cho Sinh viên</li>
-                <li><strong>departmentCode</strong>: chỉ áp dụng cho Giảng viên</li>
+                <li><strong>course</strong>, <strong>classCode</strong>: chỉ áp dụng cho Sinh viên<br/>(classCode là mã lớp dạng chuỗi, ví dụ: CK23A — tra trong danh sách lớp học)</li>
+                <li><strong>departmentCode</strong>: chỉ áp dụng cho Giảng viên<br/>(nhập mã phòng ban dạng chuỗi, ví dụ: CNTT — không phải số id)</li>
               </ul>
             </div>
 
@@ -701,7 +713,8 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
                       <th className="px-3 py-2">Mã</th>
                       <th className="px-3 py-2">Họ tên</th>
                       <th className="px-3 py-2">Email</th>
-                      <th className="px-3 py-2">Niên khóa / Phòng ban</th>
+                      <th className="px-3 py-2">Niên khóa / Mã lớp</th>
+                      <th className="px-3 py-2">Phòng ban</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -712,7 +725,10 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
                         <td className="px-3 py-2">{row.name}</td>
                         <td className="px-3 py-2">{row.email}</td>
                         <td className="px-3 py-2">
-                          {row.role === "Sinh viên" ? row.course : row.role === "Giảng viên" ? row.departmentCode : "-"}
+                          {row.role === "student" ? `${row.course ?? "-"} / ${row.classCode ?? "-"}` : "-"}
+                        </td>
+                        <td className="px-3 py-2">
+                          {row.role === "teacher" ? (row.departmentCode ?? "-") : "-"}
                         </td>
                       </tr>
                     ))}
