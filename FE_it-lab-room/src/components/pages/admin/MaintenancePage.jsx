@@ -81,16 +81,7 @@ export default function MaintenancePage() {
             Tiếp nhận
           </button>
         )}
-        {actions.includes("create_ticket") && (
-          <Link
-            to="/admin/maintenance-tickets"
-            state={{ reportId: report.id, reportTitle: report.tieu_de }}
-            className="inline-flex h-9 items-center gap-1 rounded-lg bg-emerald-100 px-3 text-emerald-700 hover:bg-emerald-200 transition"
-          >
-            <Wrench size={15} />
-            Lập phiếu
-          </Link>
-        )}
+
         {actions.includes("reject") && (
           <button
             type="button"

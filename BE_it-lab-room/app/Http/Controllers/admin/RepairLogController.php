@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\RepairLogRequest;
 use App\Http\Resources\RepairLogResource;
 use App\Enums\IncidentReportStatus;
 use App\Enums\MaintenanceTicketStatus;
@@ -31,8 +30,10 @@ class RepairLogController extends Controller
             $query = RepairLog::query()
                 ->with([
                     'maintenanceTicket:id,trang_thai',
-                    'computer:id,ma_may,ten_may',
-                    'equipment:id,ten_thiet_bi',
+                    'computer:id,ma_may,ten_may,ma_phong',
+                    'computer.room:id,ma_phong,ten_phong',
+                    'equipment:id,ten_thiet_bi,ma_phong',
+                    'equipment.room:id,ma_phong,ten_phong',
                     'repairer:id,ho_ten',
                 ]);
 
@@ -73,116 +74,5 @@ class RepairLogController extends Controller
         }
     }
 
-    /**
-     * Tạo nhật ký sửa chữa mới.
-     * Trong transaction:
-     * 1. Tạo nhật ký.
-     * 2. Nếu nhật ký đầu tiên của phiếu → phiếu chuyển in_progress.
-     * 3. Nếu ket_qua = 'da_xu_ly' → cascade: phiếu completed, báo cáo resolved, máy/thiết bị hoạt động.
-     */
-    public function store(RepairLogRequest $request): JsonResponse
-    {
-        try {
-            $data = $request->validated();
 
-            $repairLog = DB::transaction(function () use ($data) {
-                // Tạo nhật ký sửa chữa
-                $repairLog = RepairLog::create([
-                    'ma_phieu_bao_tri' => $data['ma_phieu_bao_tri'],
-                    'ma_may_tinh'      => $data['ma_may_tinh'] ?? null,
-                    'ma_thiet_bi'      => $data['ma_thiet_bi'] ?? null,
-                    'ma_nguoi_sua'     => Auth::id(),
-                    'thoi_gian_sua'    => $data['thoi_gian_sua'],
-                    'noi_dung_sua'     => $data['noi_dung_sua'],
-                    'ket_qua'          => $data['ket_qua'],
-                    'chi_phi'          => $data['chi_phi'] ?? 0,
-                ]);
-
-                // Lấy phiếu bảo trì liên quan (khoá row tránh race condition)
-                $ticket = MaintenanceTicket::where('id', $data['ma_phieu_bao_tri'])
-                    ->lockForUpdate()
-                    ->first();
-
-                // Nếu là nhật ký ĐẦU TIÊN của phiếu → chuyển phiếu sang in_progress
-                if ($ticket->trang_thai === MaintenanceTicketStatus::PENDING) {
-                    $ticket->update(['trang_thai' => MaintenanceTicketStatus::IN_PROGRESS]);
-                }
-
-                // Nếu kết quả là 'đã xử lý' → cascade cập nhật toàn bộ
-                if ($data['ket_qua'] === RepairResult::DA_XU_LY) {
-                    // Cập nhật phiếu bảo trì → completed
-                    $ticket->update(['trang_thai' => MaintenanceTicketStatus::COMPLETED]);
-
-                    // Cập nhật báo cáo sự cố → resolved
-                    if ($ticket->ma_bao_cao_su_co) {
-                        $ticket->incidentReport()->update([
-                            'trang_thai' => IncidentReportStatus::RESOLVED,
-                        ]);
-                    }
-
-                    // Cập nhật máy tính → hoạt động (nếu có)
-                    if (!empty($data['ma_may_tinh'])) {
-                        Computer::where('id', $data['ma_may_tinh'])
-                            ->update(['trang_thai' => 'active']);
-                    }
-
-                    // Cập nhật thiết bị → hoạt động (nếu có)
-                    if (!empty($data['ma_thiet_bi'])) {
-                        Equipment::where('id', $data['ma_thiet_bi'])
-                            ->update(['trang_thai' => 'active']);
-                    }
-                }
-
-                // Nếu kết quả là 'không sửa được' → cascade: phiếu unresolved, báo cáo unresolved, máy/thiết bị broken
-                if ($data['ket_qua'] === RepairResult::KHONG_SUA_DUOC) {
-                    // Cập nhật phiếu bảo trì → không thể khắc phục
-                    $ticket->update(['trang_thai' => MaintenanceTicketStatus::UNRESOLVED]);
-
-                    // Cập nhật báo cáo sự cố → không thể khắc phục
-                    if ($ticket->ma_bao_cao_su_co) {
-                        $ticket->incidentReport()->update([
-                            'trang_thai' => IncidentReportStatus::UNRESOLVED,
-                        ]);
-                    }
-
-                    // Máy không sửa được → đánh dấu hỏng
-                    if (!empty($data['ma_may_tinh'])) {
-                        Computer::where('id', $data['ma_may_tinh'])
-                            ->update(['trang_thai' => 'broken']);
-                    }
-
-                    // Thiết bị không sửa được → đánh dấu hỏng
-                    if (!empty($data['ma_thiet_bi'])) {
-                        Equipment::where('id', $data['ma_thiet_bi'])
-                            ->update(['trang_thai' => 'broken']);
-                    }
-                }
-
-                return $repairLog;
-            });
-
-            // Load quan hệ để trả resource đầy đủ
-            $repairLog->load([
-                'maintenanceTicket:id,trang_thai',
-                'computer:id,ma_may,ten_may',
-                'equipment:id,ten_thiet_bi',
-                'repairer:id,ho_ten',
-            ]);
-
-            return response()->json([
-                'status'     => true,
-                'message'    => 'Tạo nhật ký sửa chữa thành công',
-                'error_code' => 201,
-                'data'       => new RepairLogResource($repairLog),
-            ], 201);
-        } catch (Throwable $e) {
-            Log::error('Admin\RepairLogController@store: ' . $e->getMessage());
-            return response()->json([
-                'status'     => false,
-                'message'    => 'Hiện tại không thể xử lý yêu cầu của bạn',
-                'error_code' => 500,
-                'data'       => '',
-            ], 500);
-        }
-    }
 }

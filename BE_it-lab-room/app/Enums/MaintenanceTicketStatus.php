@@ -10,8 +10,6 @@ class MaintenanceTicketStatus
     const PENDING = 'pending';
     const IN_PROGRESS = 'in_progress';
     const COMPLETED = 'completed';
-    const CANCELLED = 'cancelled';
-    const UNRESOLVED = 'unresolved';
 
     /**
      * Danh sách tất cả trạng thái hợp lệ.
@@ -22,8 +20,6 @@ class MaintenanceTicketStatus
             self::PENDING,
             self::IN_PROGRESS,
             self::COMPLETED,
-            self::CANCELLED,
-            self::UNRESOLVED,
         ];
     }
 }

@@ -7,10 +7,10 @@ import DataTable from "../../common/DataTable";
 import Pagination from "../../common/Pagination";
 import { Field, SelectInput, TextInput } from "./adminFormControls";
 import { formatDateDisplay } from "../../../helpers/date-display.helper";
-import { getMaintenanceTickets, createMaintenanceTicket, updateMaintenanceTicket } from "../../../services/maintenanceTicket.service";
+import { getMaintenanceTickets, updateMaintenanceTicket } from "../../../services/maintenanceTicket.service";
 import { getIncidentReports } from "../../../services/incidentReport.service";
 import { getUsersFromApi, getRolesFromApi } from "../../../services/user.service";
-import { TICKET_STATUS_LABELS } from "../../../constants/incident.constant";
+import { TICKET_STATUS_LABELS, MAINTENANCE_TYPE_OPTIONS, MAINTENANCE_TYPE_LABELS } from "../../../constants/incident.constant";
 
 export default function MaintenanceTicketsPage() {
   const location = useLocation();
@@ -23,17 +23,17 @@ export default function MaintenanceTicketsPage() {
 
   const [editingTicket, setEditingTicket] = useState(null);
 
-  // Dữ liệu cho form tạo phiếu
-  const [confirmedReports, setConfirmedReports] = useState([]);
+  // Dữ liệu cho form cập nhật
   const [technicians, setTechnicians] = useState([]);
   const [ticketForm, setTicketForm] = useState({
-    ma_bao_cao_su_co: location.state?.reportId || "",
+    ma_bao_cao_su_co: "",
     ma_nguoi_phu_trach: "",
     loai_bao_tri: "",
     ngay_bat_dau: new Date().toISOString().split("T")[0],
     ngay_ket_thuc: "",
     cach_xu_ly: "",
     chi_phi: "0",
+    trang_thai: "",
   });
 
   // Lấy danh sách phiếu bảo trì
@@ -57,10 +57,7 @@ export default function MaintenanceTicketsPage() {
   useEffect(() => {
     fetchTickets({ page: 1 });
 
-    // Lấy danh sách báo cáo đã tiếp nhận (confirmed) cho dropdown
-    getIncidentReports({ status: "confirmed" })
-      .then((res) => setConfirmedReports(res.data || []))
-      .catch(() => { });
+
 
     // Lấy danh sách kỹ thuật viên (role "technician") cho dropdown người phụ trách
     getRolesFromApi()
@@ -94,34 +91,37 @@ export default function MaintenanceTicketsPage() {
     }, 500);
   };
 
-  // Tạo phiếu bảo trì
+  // Cập nhật phiếu bảo trì
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!ticketForm.ma_bao_cao_su_co || !ticketForm.ma_nguoi_phu_trach) {
-      alert("Vui lòng chọn báo cáo sự cố và người phụ trách");
+    if (!editingTicket) return;
+
+    if (!ticketForm.ma_nguoi_phu_trach) {
+      alert("Vui lòng chọn người phụ trách");
       return;
     }
+
+    if (ticketForm.trang_thai === "completed" && !ticketForm.cach_xu_ly) {
+      alert("Vui lòng nhập cách xử lý khi hoàn thành phiếu bảo trì");
+      return;
+    }
+
     setSubmitting(true);
     try {
-      if (editingTicket) {
-        await updateMaintenanceTicket(editingTicket.id, {
-          ma_nguoi_phu_trach: Number(ticketForm.ma_nguoi_phu_trach),
-          loai_bao_tri: ticketForm.loai_bao_tri,
-          ngay_bat_dau: ticketForm.ngay_bat_dau,
-          ngay_ket_thuc: ticketForm.ngay_ket_thuc,
-          cach_xu_ly: ticketForm.cach_xu_ly,
-          chi_phi: Number(ticketForm.chi_phi || 0),
-        });
-        alert("Cập nhật phiếu bảo trì thành công");
-      } else {
-        await createMaintenanceTicket({
-          ...ticketForm,
-          ma_bao_cao_su_co: Number(ticketForm.ma_bao_cao_su_co),
-          ma_nguoi_phu_trach: Number(ticketForm.ma_nguoi_phu_trach),
-          chi_phi: Number(ticketForm.chi_phi || 0),
-        });
-        alert("Tạo phiếu bảo trì thành công");
-      }
+      await updateMaintenanceTicket(editingTicket.id, {
+        ma_nguoi_phu_trach: Number(ticketForm.ma_nguoi_phu_trach),
+        loai_bao_tri: ticketForm.loai_bao_tri,
+        ngay_bat_dau: ticketForm.ngay_bat_dau,
+        ngay_ket_thuc: ticketForm.ngay_ket_thuc,
+        cach_xu_ly: ticketForm.cach_xu_ly,
+        chi_phi: Number(ticketForm.chi_phi || 0),
+        trang_thai: ticketForm.trang_thai,
+      });
+      alert(
+        ticketForm.trang_thai === "completed"
+          ? "Cập nhật phiếu thành công. Đã tự động tạo nhật ký sửa chữa và đóng báo cáo sự cố."
+          : "Cập nhật phiếu bảo trì thành công"
+      );
 
       // Reset form
       setEditingTicket(null);
@@ -133,21 +133,17 @@ export default function MaintenanceTicketsPage() {
         ngay_ket_thuc: "",
         cach_xu_ly: "",
         chi_phi: "0",
+        trang_thai: "",
       });
       // Reload danh sách
       fetchTickets({ page: 1 });
-      // Reload báo cáo confirmed (vì vừa chuyển sang processing)
-      getIncidentReports({ status: "confirmed" })
-        .then((res) => setConfirmedReports(res.data || []))
-        .catch(() => { });
     } catch (err) {
-      alert(err.message || "Không thể tạo phiếu bảo trì");
+      alert(err.message || "Không thể cập nhật phiếu bảo trì");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Nút Sửa
   const handleEdit = (ticket) => {
     setEditingTicket(ticket);
     setTicketForm({
@@ -158,6 +154,7 @@ export default function MaintenanceTicketsPage() {
       ngay_ket_thuc: ticket.ngay_ket_thuc ? ticket.ngay_ket_thuc.split("T")[0] : "",
       cach_xu_ly: ticket.cach_xu_ly || "",
       chi_phi: ticket.chi_phi || "0",
+      trang_thai: ticket.trang_thai || "pending",
     });
     // Scroll lên đầu
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -167,93 +164,85 @@ export default function MaintenanceTicketsPage() {
   const handleCancelEdit = () => {
     setEditingTicket(null);
     setTicketForm({
-      ma_bao_cao_su_co: location.state?.reportId || "",
+      ma_bao_cao_su_co: "",
       ma_nguoi_phu_trach: "",
       loai_bao_tri: "",
       ngay_bat_dau: new Date().toISOString().split("T")[0],
       ngay_ket_thuc: "",
       cach_xu_ly: "",
       chi_phi: "0",
+      trang_thai: "",
     });
   };
 
-  // Tìm báo cáo đang chọn để hiển thị info
-  const selectedReport = confirmedReports.find((r) => Number(r.id) === Number(ticketForm.ma_bao_cao_su_co));
-
   return (
     <AppShell role="admin" title="Phiếu bảo trì" subtitle="Lập phiếu bảo trì từ báo cáo sự cố và theo dõi xử lý">
-      <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
-        <SectionCard title={editingTicket ? "Sửa phiếu bảo trì" : "Tạo phiếu bảo trì"}>
-          <form onSubmit={handleSubmit} className="grid gap-4">
-            <Field label="Báo cáo sự cố">
-              {editingTicket ? (
+      <div className={`grid gap-6 ${editingTicket ? "xl:grid-cols-[380px_minmax(0,1fr)]" : ""}`}>
+        {editingTicket && (
+          <SectionCard title="Sửa phiếu bảo trì">
+            <form onSubmit={handleSubmit} className="grid gap-4">
+              <Field label="Báo cáo sự cố">
                 <TextInput
                   value={`#${editingTicket.bao_cao_su_co?.id} - ${editingTicket.bao_cao_su_co?.tieu_de}`}
                   onChange={() => { }}
                   disabled
                 />
-              ) : (
-                <SelectInput
-                  value={ticketForm.ma_bao_cao_su_co}
-                  onChange={(val) => setTicketForm({ ...ticketForm, ma_bao_cao_su_co: val })}
-                >
-                  <option value="">Chọn báo cáo...</option>
-                  {confirmedReports.map((report) => (
-                    <option key={report.id} value={report.id}>
-                      #{report.id} - {report.tieu_de}
-                    </option>
+              </Field>
+              <Field label="Người phụ trách">
+                <SelectInput value={ticketForm.ma_nguoi_phu_trach} onChange={(val) => setTicketForm({ ...ticketForm, ma_nguoi_phu_trach: val })}>
+                  <option value="">Chọn kỹ thuật viên...</option>
+                  {technicians.length === 0 ? (
+                    <option value="" disabled>Chưa có kỹ thuật viên nào</option>
+                  ) : (
+                    technicians.map((technician) => (
+                      <option key={technician.id} value={technician.id}>
+                        {technician.full_name}
+                      </option>
+                    ))
+                  )}
+                </SelectInput>
+              </Field>
+              <Field label="Loại bảo trì">
+                <SelectInput value={ticketForm.loai_bao_tri} onChange={(val) => setTicketForm({ ...ticketForm, loai_bao_tri: val })}>
+                  <option value="">Chọn loại bảo trì...</option>
+                  {MAINTENANCE_TYPE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </SelectInput>
-              )}
-            </Field>
-            {selectedReport && (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                <div className="font-semibold text-slate-900">
-                  {selectedReport.may_tinh ? `Máy: ${selectedReport.may_tinh.ma_may}` : selectedReport.thiet_bi ? `TB: ${selectedReport.thiet_bi.ten_thiet_bi}` : "—"}
-                </div>
-                <div>{selectedReport.loai_su_co || "—"}</div>
-              </div>
-            )}
-            <Field label="Người phụ trách">
-              <SelectInput value={ticketForm.ma_nguoi_phu_trach} onChange={(val) => setTicketForm({ ...ticketForm, ma_nguoi_phu_trach: val })}>
-                <option value="">Chọn kỹ thuật viên...</option>
-                {technicians.length === 0 ? (
-                  <option value="" disabled>Chưa có kỹ thuật viên nào</option>
-                ) : (
-                  technicians.map((technician) => (
-                    <option key={technician.id} value={technician.id}>
-                      {technician.full_name}
-                    </option>
-                  ))
-                )}
-              </SelectInput>
-            </Field>
-            <Field label="Loại bảo trì"><TextInput value={ticketForm.loai_bao_tri} onChange={(val) => setTicketForm({ ...ticketForm, loai_bao_tri: val })} placeholder="VD: Sửa phần cứng" /></Field>
-            <Field label="Ngày bắt đầu"><TextInput type="date" value={ticketForm.ngay_bat_dau} onChange={(val) => setTicketForm({ ...ticketForm, ngay_bat_dau: val })} /></Field>
-            <Field label="Ngày kết thúc"><TextInput type="date" value={ticketForm.ngay_ket_thuc} onChange={(val) => setTicketForm({ ...ticketForm, ngay_ket_thuc: val })} /></Field>
-            <Field label="Cách xử lý"><TextInput value={ticketForm.cach_xu_ly} onChange={(val) => setTicketForm({ ...ticketForm, cach_xu_ly: val })} /></Field>
-            <Field label="Chi phí"><TextInput type="number" value={ticketForm.chi_phi} onChange={(val) => setTicketForm({ ...ticketForm, chi_phi: val })} /></Field>
-            <div className="flex items-center gap-3">
-              <button
-                disabled={submitting}
-                className="inline-flex w-fit items-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition"
-              >
-                {editingTicket ? <Pencil size={16} /> : <Wrench size={16} />}
-                {submitting ? "Đang lưu..." : editingTicket ? "Cập nhật phiếu" : "Lưu phiếu"}
-              </button>
-              {editingTicket && (
+              </Field>
+              <Field label="Ngày bắt đầu"><TextInput type="date" value={ticketForm.ngay_bat_dau} onChange={(val) => setTicketForm({ ...ticketForm, ngay_bat_dau: val })} /></Field>
+              <Field label="Ngày kết thúc"><TextInput type="date" value={ticketForm.ngay_ket_thuc} onChange={(val) => setTicketForm({ ...ticketForm, ngay_ket_thuc: val })} /></Field>
+              <Field label="Cách xử lý"><TextInput value={ticketForm.cach_xu_ly} onChange={(val) => setTicketForm({ ...ticketForm, cach_xu_ly: val })} /></Field>
+              <Field label="Chi phí"><TextInput type="number" value={ticketForm.chi_phi} onChange={(val) => setTicketForm({ ...ticketForm, chi_phi: val })} /></Field>
+              <Field label="Trạng thái">
+                <SelectInput value={ticketForm.trang_thai} onChange={(val) => setTicketForm({ ...ticketForm, trang_thai: val })}>
+                  <option value="pending">Chờ xử lý</option>
+                  <option value="in_progress">Đang xử lý</option>
+                  <option value="completed">Hoàn thành</option>
+                </SelectInput>
+              </Field>
+              <div className="flex items-center gap-3">
                 <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  className="inline-flex w-fit items-center gap-2 rounded-lg bg-slate-100 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition"
+                  disabled={submitting}
+                  className="inline-flex w-fit items-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition"
                 >
-                  <X size={16} />
-                  Hủy sửa
+                  {editingTicket ? <Pencil size={16} /> : <Wrench size={16} />}
+                  {submitting ? "Đang lưu..." : editingTicket ? "Cập nhật phiếu" : "Lưu phiếu"}
                 </button>
-              )}
-            </div>
-          </form>
-        </SectionCard>
+                {editingTicket && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="inline-flex w-fit items-center gap-2 rounded-lg bg-slate-100 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition"
+                  >
+                    <X size={16} />
+                    Hủy sửa
+                  </button>
+                )}
+              </div>
+            </form>
+          </SectionCard>
+        )}
 
         <SectionCard
           title={`Danh sách phiếu bảo trì (${pagination.total})`}
@@ -283,7 +272,7 @@ export default function MaintenanceTicketsPage() {
                 title: "Phụ trách",
                 render: (val) => val?.ho_ten || "—",
               },
-              { key: "loai_bao_tri", title: "Loại bảo trì" },
+              { key: "loai_bao_tri", title: "Loại bảo trì", render: (val) => MAINTENANCE_TYPE_LABELS[val] || val },
               { key: "ngay_bat_dau", title: "Bắt đầu", render: formatDateDisplay },
               { key: "ngay_ket_thuc", title: "Kết thúc", render: formatDateDisplay },
               { key: "cach_xu_ly", title: "Cách xử lý" },
@@ -293,13 +282,13 @@ export default function MaintenanceTicketsPage() {
                 key: "actions",
                 title: "Thao tác",
                 render: (_, item) => {
-                  const canEdit = item.trang_thai === "pending" || item.trang_thai === "in_progress";
-                  if (!canEdit) return <span className="text-sm text-slate-400">—</span>;
+                  const canEdit = item.trang_thai !== "completed";
                   return (
                     <button
                       onClick={() => handleEdit(item)}
-                      title="Sửa phiếu"
-                      className="p-1.5 text-slate-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition"
+                      title={canEdit ? "Cập nhạt" : "Không thể cập nhật phiếu đã đóng"}
+                      disabled={!canEdit}
+                      className={`p-1.5 rounded-md transition ${canEdit ? "text-slate-400 hover:text-blue-600 hover:bg-blue-50" : "text-slate-300 cursor-not-allowed"}`}
                     >
                       <Pencil size={18} />
                     </button>

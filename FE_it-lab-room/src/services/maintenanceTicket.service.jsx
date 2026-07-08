@@ -18,15 +18,6 @@ export function getMaintenanceTickets(params = {}) {
   });
 }
 
-/**
- * Tạo phiếu bảo trì mới (admin).
- */
-export function createMaintenanceTicket(payload) {
-  return fetcher(CONST_APIS.MAINTENANCE_TICKETS.STORE, {
-    method: CONST_METHODS.POST,
-    body: payload,
-  });
-}
 
 /**
  * Cập nhật phiếu bảo trì (admin).

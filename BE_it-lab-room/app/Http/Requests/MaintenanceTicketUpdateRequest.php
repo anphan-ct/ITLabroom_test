@@ -3,7 +3,9 @@
 namespace App\Http\Requests;
 
 use App\Enums\MaintenanceTicketStatus;
+use App\Enums\MaintenanceType;
 use App\Models\User;
+use Illuminate\Validation\Rule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -24,11 +26,12 @@ class MaintenanceTicketUpdateRequest extends FormRequest
     {
         return [
             'ma_nguoi_phu_trach' => 'required|integer|exists:nguoi_dung,id',
-            'loai_bao_tri'       => 'nullable|string|max:255',
+            'loai_bao_tri'       => ['nullable', 'string', Rule::in(MaintenanceType::all())],
             'ngay_bat_dau'       => 'nullable|date',
             'ngay_ket_thuc'      => 'nullable|date|after_or_equal:ngay_bat_dau',
             'cach_xu_ly'         => 'nullable|string',
             'chi_phi'            => 'nullable|numeric|min:0',
+            'trang_thai'         => ['required', 'string', Rule::in(MaintenanceTicketStatus::all())],
         ];
     }
 
@@ -46,13 +49,28 @@ class MaintenanceTicketUpdateRequest extends FormRequest
 
             // Kiểm tra trạng thái phiếu: chỉ cho sửa khi chưa đóng
             $ticket = $this->route('maintenanceTicket');
-            if ($ticket && !in_array($ticket->trang_thai, [
-                MaintenanceTicketStatus::PENDING,
-                MaintenanceTicketStatus::IN_PROGRESS,
-            ])) {
+            if ($ticket && $ticket->trang_thai === MaintenanceTicketStatus::COMPLETED) {
                 $validator->errors()->add(
                     'trang_thai',
-                    'Phiếu bảo trì đã đóng (hoàn thành/không thể khắc phục/đã huỷ), không thể chỉnh sửa.'
+                    'Phiếu bảo trì đã đóng (hoàn thành), không thể chỉnh sửa.'
+                );
+                return;
+            }
+
+            // Không cho phép chuyển ngược trạng thái từ in_progress về pending
+            $newStatus = $this->input('trang_thai');
+            if ($ticket && $ticket->trang_thai === MaintenanceTicketStatus::IN_PROGRESS && $newStatus === MaintenanceTicketStatus::PENDING) {
+                $validator->errors()->add(
+                    'trang_thai',
+                    'Không thể chuyển trạng thái từ đang xử lý về chưa xử lý.'
+                );
+            }
+
+            // Bắt buộc nhập cách xử lý khi hoàn thành
+            if ($newStatus === MaintenanceTicketStatus::COMPLETED && empty($this->input('cach_xu_ly'))) {
+                $validator->errors()->add(
+                    'cach_xu_ly',
+                    'Vui lòng nhập cách xử lý khi hoàn thành phiếu bảo trì.'
                 );
             }
 

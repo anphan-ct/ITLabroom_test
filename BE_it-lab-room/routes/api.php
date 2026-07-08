@@ -188,14 +188,12 @@ Route::middleware(['auth:sanctum', 'abilities:admin'])->group(function () {
     // Nhóm API quản lý phiếu bảo trì (admin)
     Route::prefix('admin/maintenance-tickets')->group(function () {
         Route::get('/', [AdminMaintenanceTicketController::class, 'index']);
-        Route::post('/', [AdminMaintenanceTicketController::class, 'store']);
         Route::put('/{maintenanceTicket}', [AdminMaintenanceTicketController::class, 'update']);
     });
 
     // Nhóm API quản lý nhật ký sửa chữa (admin)
     Route::prefix('admin/repair-logs')->group(function () {
         Route::get('/', [AdminRepairLogController::class, 'index']);
-        Route::post('/', [AdminRepairLogController::class, 'store']);
     });
 
     // Mượn / trả máy (Admin)
