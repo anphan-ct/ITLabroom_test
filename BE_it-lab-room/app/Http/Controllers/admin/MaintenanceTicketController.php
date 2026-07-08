@@ -96,13 +96,13 @@ class MaintenanceTicketController extends Controller
                         // Tự động sinh RepairLog
                         \App\Models\RepairLog::create([
                             'ma_phieu_bao_tri' => $maintenanceTicket->id,
-                            'ma_nguoi_sua_chua' => clone $maintenanceTicket->ma_nguoi_phu_trach,
-                            'ma_may_tinh' => clone $incidentReport->ma_may_tinh,
-                            'ma_thiet_bi' => clone $incidentReport->ma_thiet_bi,
-                            'thoi_gian_sua_chua' => now(),
-                            'mo_ta_loi' => clone $incidentReport->mo_ta,
-                            'chi_tiet_sua_chua' => clone $maintenanceTicket->cach_xu_ly,
-                            'ket_qua' => \App\Enums\RepairResult::DA_XU_LY,
+                            'ma_may_tinh'      => $incidentReport->ma_may_tinh,
+                            'ma_thiet_bi'      => $incidentReport->ma_thiet_bi,
+                            'ma_nguoi_sua'     => $maintenanceTicket->ma_nguoi_phu_trach,
+                            'thoi_gian_sua'    => $maintenanceTicket->updated_at,
+                            'noi_dung_sua'     => $maintenanceTicket->cach_xu_ly,
+                            'ket_qua'          => \App\Enums\RepairResult::DA_XU_LY,
+                            'chi_phi'          => $maintenanceTicket->chi_phi,
                         ]);
 
                         // Cập nhật trạng thái máy tính/thiết bị sang active

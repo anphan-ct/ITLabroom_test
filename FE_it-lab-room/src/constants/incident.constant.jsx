@@ -4,7 +4,7 @@
 
 // Trạng thái báo cáo sự cố
 export const INCIDENT_STATUS_LABELS = {
-  open: "Chờ tiếp nhận",
+  open: "Chờ duyệt",
   processing: "Đang sửa chữa",
   resolved: "Đã khắc phục",
   rejected: "Từ chối",
@@ -48,9 +48,9 @@ export const REPAIR_RESULT_LABELS = Object.fromEntries(
 
 // Trạng thái phiếu bảo trì
 export const TICKET_STATUS_LABELS = {
-  pending: "Chờ xử lý",
-  in_progress: "Đang xử lý",
-  completed: "Hoàn thành",
+  pending: "Chưa xử lý",
+  in_progress: "Đang tiến hành",
+  completed: "Đã hoàn tất",
 };
 
 // Loại bảo trì

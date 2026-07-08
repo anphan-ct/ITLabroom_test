@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Search, Wrench, Pencil, X } from "lucide-react";
+import { Search, Pencil } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import AppShell from "../../common/AppShell";
 import SectionCard from "../../common/SectionCard";
 import DataTable from "../../common/DataTable";
 import Pagination from "../../common/Pagination";
-import { Field, SelectInput, TextInput } from "./adminFormControls";
+
 import { formatDateDisplay } from "../../../helpers/date-display.helper";
 import { getMaintenanceTickets, updateMaintenanceTicket } from "../../../services/maintenanceTicket.service";
-import { getIncidentReports } from "../../../services/incidentReport.service";
 import { getUsersFromApi, getRolesFromApi } from "../../../services/user.service";
-import { TICKET_STATUS_LABELS, MAINTENANCE_TYPE_OPTIONS, MAINTENANCE_TYPE_LABELS } from "../../../constants/incident.constant";
+import { MAINTENANCE_TYPE_LABELS } from "../../../constants/incident.constant";
+import MaintenanceTicketUpdateModal from "./MaintenanceTicketUpdateModal";
 
 export default function MaintenanceTicketsPage() {
   const location = useLocation();
@@ -177,72 +177,7 @@ export default function MaintenanceTicketsPage() {
 
   return (
     <AppShell role="admin" title="Phiếu bảo trì" subtitle="Lập phiếu bảo trì từ báo cáo sự cố và theo dõi xử lý">
-      <div className={`grid gap-6 ${editingTicket ? "xl:grid-cols-[380px_minmax(0,1fr)]" : ""}`}>
-        {editingTicket && (
-          <SectionCard title="Sửa phiếu bảo trì">
-            <form onSubmit={handleSubmit} className="grid gap-4">
-              <Field label="Báo cáo sự cố">
-                <TextInput
-                  value={`#${editingTicket.bao_cao_su_co?.id} - ${editingTicket.bao_cao_su_co?.tieu_de}`}
-                  onChange={() => { }}
-                  disabled
-                />
-              </Field>
-              <Field label="Người phụ trách">
-                <SelectInput value={ticketForm.ma_nguoi_phu_trach} onChange={(val) => setTicketForm({ ...ticketForm, ma_nguoi_phu_trach: val })}>
-                  <option value="">Chọn kỹ thuật viên...</option>
-                  {technicians.length === 0 ? (
-                    <option value="" disabled>Chưa có kỹ thuật viên nào</option>
-                  ) : (
-                    technicians.map((technician) => (
-                      <option key={technician.id} value={technician.id}>
-                        {technician.full_name}
-                      </option>
-                    ))
-                  )}
-                </SelectInput>
-              </Field>
-              <Field label="Loại bảo trì">
-                <SelectInput value={ticketForm.loai_bao_tri} onChange={(val) => setTicketForm({ ...ticketForm, loai_bao_tri: val })}>
-                  <option value="">Chọn loại bảo trì...</option>
-                  {MAINTENANCE_TYPE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </SelectInput>
-              </Field>
-              <Field label="Ngày bắt đầu"><TextInput type="date" value={ticketForm.ngay_bat_dau} onChange={(val) => setTicketForm({ ...ticketForm, ngay_bat_dau: val })} /></Field>
-              <Field label="Ngày kết thúc"><TextInput type="date" value={ticketForm.ngay_ket_thuc} onChange={(val) => setTicketForm({ ...ticketForm, ngay_ket_thuc: val })} /></Field>
-              <Field label="Cách xử lý"><TextInput value={ticketForm.cach_xu_ly} onChange={(val) => setTicketForm({ ...ticketForm, cach_xu_ly: val })} /></Field>
-              <Field label="Chi phí"><TextInput type="number" value={ticketForm.chi_phi} onChange={(val) => setTicketForm({ ...ticketForm, chi_phi: val })} /></Field>
-              <Field label="Trạng thái">
-                <SelectInput value={ticketForm.trang_thai} onChange={(val) => setTicketForm({ ...ticketForm, trang_thai: val })}>
-                  <option value="pending">Chờ xử lý</option>
-                  <option value="in_progress">Đang xử lý</option>
-                  <option value="completed">Hoàn thành</option>
-                </SelectInput>
-              </Field>
-              <div className="flex items-center gap-3">
-                <button
-                  disabled={submitting}
-                  className="inline-flex w-fit items-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition"
-                >
-                  {editingTicket ? <Pencil size={16} /> : <Wrench size={16} />}
-                  {submitting ? "Đang lưu..." : editingTicket ? "Cập nhật phiếu" : "Lưu phiếu"}
-                </button>
-                {editingTicket && (
-                  <button
-                    type="button"
-                    onClick={handleCancelEdit}
-                    className="inline-flex w-fit items-center gap-2 rounded-lg bg-slate-100 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition"
-                  >
-                    <X size={16} />
-                    Hủy sửa
-                  </button>
-                )}
-              </div>
-            </form>
-          </SectionCard>
-        )}
+      <div className="grid gap-6">
 
         <SectionCard
           title={`Danh sách phiếu bảo trì (${pagination.total})`}
@@ -286,7 +221,7 @@ export default function MaintenanceTicketsPage() {
                   return (
                     <button
                       onClick={() => handleEdit(item)}
-                      title={canEdit ? "Cập nhạt" : "Không thể cập nhật phiếu đã đóng"}
+                      title={canEdit ? "Cập nhật" : "Không thể cập nhật phiếu đã đóng"}
                       disabled={!canEdit}
                       className={`p-1.5 rounded-md transition ${canEdit ? "text-slate-400 hover:text-blue-600 hover:bg-blue-50" : "text-slate-300 cursor-not-allowed"}`}
                     >
@@ -306,6 +241,17 @@ export default function MaintenanceTicketsPage() {
           />
         </SectionCard>
       </div>
+
+      <MaintenanceTicketUpdateModal
+        open={!!editingTicket}
+        onClose={handleCancelEdit}
+        ticket={editingTicket}
+        form={ticketForm}
+        onFormChange={(field, value) => setTicketForm((prev) => ({ ...prev, [field]: value }))}
+        onSubmit={handleSubmit}
+        submitting={submitting}
+        technicians={technicians}
+      />
     </AppShell>
   );
 }

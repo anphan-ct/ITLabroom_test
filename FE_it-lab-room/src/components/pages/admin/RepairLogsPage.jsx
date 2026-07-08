@@ -14,6 +14,7 @@ export default function RepairLogsPage() {
   const [pagination, setPagination] = useState({ current_page: 1, last_page: 1, total: 0 });
   const [searchKeyword, setSearchKeyword] = useState("");
   const [loading, setLoading] = useState(false);
+  const debounceRef = useRef(null);
 
 
   // Lấy danh sách nhật ký sửa chữa
@@ -46,60 +47,62 @@ export default function RepairLogsPage() {
     }, 500);
   };
 
-  <AppShell role="admin" title="Nhật ký sửa chữa" subtitle="Ghi nhận từng lần sửa chữa máy tính và thiết bị">
-    <div className="grid gap-6">
-      <SectionCard
-        title={`Danh sách nhật ký sửa chữa (${pagination.total})`}
-        rightAction={
-          <div className="relative">
-            <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="search"
-              value={searchKeyword}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Tìm nhật ký..."
-              className="w-full min-w-[240px] rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 sm:w-72"
-            />
-          </div>
-        }
-      >
-        <DataTable
-          columns={[
-            { key: "id", title: "ID" },
-            {
-              key: "phieu_bao_tri",
-              title: "Phiếu BT",
-              render: (val) => val ? `#${val.id}` : "—",
-            },
-            {
-              key: "may_tinh",
-              title: "Đối tượng",
-              render: (_, row) => {
-                const roomName = row.phong?.ten_phong ? ` - ${row.phong.ten_phong}` : "";
-                if (row.may_tinh) return `Máy: ${row.may_tinh.ma_may}${roomName}`;
-                if (row.thiet_bi) return `TB: ${row.thiet_bi.ten_thiet_bi}${roomName}`;
-                return "—";
+  return (
+    <AppShell role="admin" title="Nhật ký sửa chữa" subtitle="Ghi nhận từng lần sửa chữa máy tính và thiết bị">
+      <div className="grid gap-6">
+        <SectionCard
+          title={`Danh sách nhật ký sửa chữa (${pagination.total})`}
+          rightAction={
+            <div className="relative">
+              <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                value={searchKeyword}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Tìm nhật ký..."
+                className="w-full min-w-[240px] rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 sm:w-72"
+              />
+            </div>
+          }
+        >
+          <DataTable
+            columns={[
+              { key: "id", title: "ID" },
+              {
+                key: "phieu_bao_tri",
+                title: "Phiếu BT",
+                render: (val) => val ? `#${val.id}` : "—",
               },
-            },
-            { key: "thoi_gian_sua", title: "Thời gian sửa", render: formatDateTimeDisplay },
-            { key: "noi_dung_sua", title: "Nội dung sửa" },
-            { key: "ket_qua", title: "Kết quả", isStatus: true },
-            { key: "chi_phi", title: "Chi phí" },
-            {
-              key: "nguoi_sua",
-              title: "Người sửa",
-              render: (val) => val?.ho_ten || "—",
-            },
-          ]}
-          data={items}
-          emptyText={loading ? "Đang tải..." : "Chưa có nhật ký sửa chữa nào"}
-        />
-        <Pagination
-          currentPage={pagination.current_page}
-          lastPage={pagination.last_page}
-          onPageChange={(page) => fetchLogs({ page })}
-        />
-      </SectionCard>
-    </div>
-  </AppShell>
+              {
+                key: "may_tinh",
+                title: "Đối tượng",
+                render: (_, row) => {
+                  const roomName = row.phong?.ten_phong ? ` - ${row.phong.ten_phong}` : "";
+                  if (row.may_tinh) return `Máy: ${row.may_tinh.ma_may}${roomName}`;
+                  if (row.thiet_bi) return `TB: ${row.thiet_bi.ten_thiet_bi}${roomName}`;
+                  return "—";
+                },
+              },
+              { key: "thoi_gian_sua", title: "Thời gian sửa", render: (val) => formatDateTimeDisplay(val, false) },
+              { key: "noi_dung_sua", title: "Nội dung sửa" },
+              { key: "ket_qua", title: "Kết quả", isStatus: true },
+              { key: "chi_phi", title: "Chi phí" },
+              {
+                key: "nguoi_sua",
+                title: "Người sửa",
+                render: (val) => val?.ho_ten || "—",
+              },
+            ]}
+            data={items}
+            emptyText={loading ? "Đang tải..." : "Chưa có nhật ký sửa chữa nào"}
+          />
+          <Pagination
+            currentPage={pagination.current_page}
+            lastPage={pagination.last_page}
+            onPageChange={(page) => fetchLogs({ page })}
+          />
+        </SectionCard>
+      </div>
+    </AppShell>
+  );
 }
