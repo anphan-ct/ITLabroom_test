@@ -50,7 +50,8 @@ export function formatDateDisplay(value) {
   return `${d}/${m}/${yyyy}`;
 }
 
-export function formatDateTimeDisplay(value) {
+// Thêm tham số showSeconds (mặc định = true) để cấu hình hiển thị giây
+export function formatDateTimeDisplay(value, showSeconds = true) {
   if (!value) return "—";
   const parsed = parseDateString(value);
   if (!parsed) return "—";
@@ -61,7 +62,12 @@ export function formatDateTimeDisplay(value) {
   
   const HH = String(parsed.hour).padStart(2, '0');
   const mm = String(parsed.minute).padStart(2, '0');
-  const ss = String(parsed.second).padStart(2, '0');
   
+  // Nếu showSeconds là false, cắt bỏ phần :ss
+  if (!showSeconds) {
+    return `${HH}:${mm} ${d}/${m}/${yyyy}`;
+  }
+
+  const ss = String(parsed.second).padStart(2, '0');
   return `${HH}:${mm}:${ss} ${d}/${m}/${yyyy}`;
 }

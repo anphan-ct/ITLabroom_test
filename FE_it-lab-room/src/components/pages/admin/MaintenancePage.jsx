@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ClipboardList, Search, Wrench, XCircle } from "lucide-react";
+import { CheckCircle, Search, Wrench, XCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import AppShell from "../../common/AppShell";
 import SectionCard from "../../common/SectionCard";
@@ -53,10 +53,18 @@ export default function MaintenancePage() {
     }, 500);
   };
 
-  // Xử lý tiếp nhận / từ chối
+  // Xử lý duyệt / từ chối
   const handleAction = async (reportId, action) => {
     try {
       await updateIncidentReportStatus(reportId, action);
+      
+      // Hiển thị thông báo thành công phân biệt theo action
+      if (action === "confirm") {
+        alert("Đã duyệt báo cáo sự cố. Hệ thống đã tự động tạo phiếu bảo trì tương ứng.");
+      } else if (action === "reject") {
+        alert("Đã từ chối báo cáo sự cố.");
+      }
+
       // Reload lại danh sách
       fetchReports({ page: pagination.current_page });
     } catch (err) {
@@ -75,22 +83,13 @@ export default function MaintenancePage() {
           <button
             type="button"
             onClick={() => handleAction(report.id, "confirm")}
-            className="inline-flex h-9 items-center gap-1 rounded-lg bg-blue-100 px-3 text-blue-700 hover:bg-blue-200 transition"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-100 px-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-200 transition"
           >
-            <ClipboardList size={15} />
-            Tiếp nhận
+            <CheckCircle size={15} />
+            Duyệt
           </button>
         )}
-        {actions.includes("create_ticket") && (
-          <Link
-            to="/admin/maintenance-tickets"
-            state={{ reportId: report.id, reportTitle: report.tieu_de }}
-            className="inline-flex h-9 items-center gap-1 rounded-lg bg-emerald-100 px-3 text-emerald-700 hover:bg-emerald-200 transition"
-          >
-            <Wrench size={15} />
-            Lập phiếu
-          </Link>
-        )}
+
         {actions.includes("reject") && (
           <button
             type="button"
@@ -106,7 +105,7 @@ export default function MaintenancePage() {
   };
 
   return (
-    <AppShell role="admin" title="Báo cáo sự cố" subtitle="Tiếp nhận báo cáo sự cố và chuyển sang phiếu bảo trì khi cần xử lý">
+    <AppShell role="admin" title="Báo cáo sự cố" subtitle="Duyệt báo cáo sự cố và chuyển sang phiếu bảo trì khi cần xử lý">
       <div className="space-y-6">
         <SectionCard
           title={`Danh sách báo cáo sự cố (${pagination.total})`}

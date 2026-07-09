@@ -168,7 +168,7 @@ export default function ReturnRequestsTab() {
   const [confirmingRequest, setConfirmingRequest] = useState(null);
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
-  const [statusFilter, setStatusFilter] = useState("pending");
+  const [statusFilter, setStatusFilter] = useState("all");//Trạng thái lọc
   const [viewingRequest, setViewingRequest] = useState(null);
 
   const fetchData = async () => {

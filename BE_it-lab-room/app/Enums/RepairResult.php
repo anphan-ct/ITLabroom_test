@@ -9,7 +9,6 @@ class RepairResult
 {
     const DANG_XU_LY = 'dang_xu_ly';
     const DA_XU_LY = 'da_xu_ly';
-    const KHONG_SUA_DUOC = 'khong_sua_duoc';
     const CAN_THAY_THE = 'can_thay_the';
 
     /**
@@ -20,7 +19,6 @@ class RepairResult
         return [
             self::DANG_XU_LY,
             self::DA_XU_LY,
-            self::KHONG_SUA_DUOC,
             self::CAN_THAY_THE,
         ];
     }

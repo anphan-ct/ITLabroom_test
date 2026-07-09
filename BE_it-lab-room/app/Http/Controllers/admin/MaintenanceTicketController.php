@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\MaintenanceTicketRequest;
 use App\Http\Requests\MaintenanceTicketUpdateRequest;
 use App\Http\Resources\MaintenanceTicketResource;
 use App\Enums\IncidentReportStatus;
@@ -75,89 +74,6 @@ class MaintenanceTicketController extends Controller
         }
     }
 
-    /**
-     * Tạo phiếu bảo trì mới từ báo cáo sự cố đã tiếp nhận.
-     * Trong transaction: tạo phiếu + cập nhật báo cáo sang processing.
-     */
-    public function store(MaintenanceTicketRequest $request): JsonResponse
-    {
-        try {
-            $data = $request->validated();
-
-            $ticket = DB::transaction(function () use ($data) {
-                // Khoá báo cáo sự cố để tránh race condition tạo trùng phiếu (Điểm 3)
-                $report = IncidentReport::where('id', $data['ma_bao_cao_su_co'])
-                    ->lockForUpdate()
-                    ->first();
-
-                // Kiểm tra đã có phiếu bảo trì chưa đóng cho báo cáo này chưa
-                $existingTicket = MaintenanceTicket::where('ma_bao_cao_su_co', $data['ma_bao_cao_su_co'])
-                    ->whereIn('trang_thai', [
-                        MaintenanceTicketStatus::PENDING,
-                        MaintenanceTicketStatus::IN_PROGRESS,
-                    ])->exists();
-
-                if ($existingTicket) {
-                    throw new \Illuminate\Http\Exceptions\HttpResponseException(response()->json([
-                        'status'     => false,
-                        'message'    => 'Báo cáo sự cố này đã có phiếu bảo trì đang xử lý, không thể tạo thêm',
-                        'error_code' => 422,
-                        'data'       => ['ma_bao_cao_su_co' => ['Đã tồn tại phiếu bảo trì đang xử lý cho báo cáo này.']],
-                    ], 422));
-                }
-
-                // Tạo phiếu bảo trì
-                $ticket = MaintenanceTicket::create([
-                    'ma_bao_cao_su_co'   => $data['ma_bao_cao_su_co'],
-                    'ma_nguoi_phu_trach' => $data['ma_nguoi_phu_trach'],
-                    'loai_bao_tri'       => $data['loai_bao_tri'] ?? null,
-                    'ngay_bat_dau'       => $data['ngay_bat_dau'] ?? null,
-                    'ngay_ket_thuc'      => $data['ngay_ket_thuc'] ?? null,
-                    'cach_xu_ly'         => $data['cach_xu_ly'] ?? null,
-                    'chi_phi'            => $data['chi_phi'] ?? 0,
-                    'trang_thai'         => 'pending',
-                ]);
-
-                // Cập nhật trạng thái báo cáo sự cố sang processing
-                $report->update(['trang_thai' => IncidentReportStatus::PROCESSING]);
-
-                // Điểm 2: Đồng bộ máy/thiết bị sang maintenance (chỉ khi đang active)
-                if ($report->ma_may_tinh) {
-                    Computer::where('id', $report->ma_may_tinh)
-                        ->where('trang_thai', 'active')
-                        ->update(['trang_thai' => 'maintenance']);
-                }
-                if ($report->ma_thiet_bi) {
-                    Equipment::where('id', $report->ma_thiet_bi)
-                        ->where('trang_thai', 'active')
-                        ->update(['trang_thai' => 'maintenance']);
-                }
-
-                return $ticket;
-            });
-
-            // Load quan hệ để trả resource đầy đủ
-            $ticket->load([
-                'incidentReport:id,tieu_de,trang_thai,ma_may_tinh,ma_thiet_bi',
-                'assignee:id,ho_ten',
-            ]);
-
-            return response()->json([
-                'status'     => true,
-                'message'    => 'Tạo phiếu bảo trì thành công',
-                'error_code' => 201,
-                'data'       => new MaintenanceTicketResource($ticket),
-            ], 201);
-        } catch (Throwable $e) {
-            Log::error('Admin\MaintenanceTicketController@store: ' . $e->getMessage());
-            return response()->json([
-                'status'     => false,
-                'message'    => 'Hiện tại không thể xử lý yêu cầu của bạn',
-                'error_code' => 500,
-                'data'       => '',
-            ], 500);
-        }
-    }
 
     /**
      * Cập nhật phiếu bảo trì (đang pending/in_progress).
@@ -166,10 +82,46 @@ class MaintenanceTicketController extends Controller
     public function update(MaintenanceTicketUpdateRequest $request, MaintenanceTicket $maintenanceTicket): JsonResponse
     {
         try {
-            $maintenanceTicket->update($request->validated());
+            DB::transaction(function () use ($request, $maintenanceTicket) {
+                $maintenanceTicket->update($request->validated());
+
+                // Nếu trạng thái phiếu chuyển sang COMPLETED
+                if ($maintenanceTicket->wasChanged('trang_thai') && $maintenanceTicket->trang_thai === MaintenanceTicketStatus::COMPLETED) {
+                    $incidentReport = IncidentReport::where('id', $maintenanceTicket->ma_bao_cao_su_co)->first();
+                    
+                    if ($incidentReport) {
+                        // Cập nhật báo cáo sự cố sang RESOLVED
+                        $incidentReport->update(['trang_thai' => IncidentReportStatus::RESOLVED]);
+
+                        // Tự động sinh RepairLog
+                        \App\Models\RepairLog::create([
+                            'ma_phieu_bao_tri' => $maintenanceTicket->id,
+                            'ma_may_tinh'      => $incidentReport->ma_may_tinh,
+                            'ma_thiet_bi'      => $incidentReport->ma_thiet_bi,
+                            'ma_nguoi_sua'     => $maintenanceTicket->ma_nguoi_phu_trach,
+                            'thoi_gian_sua'    => $maintenanceTicket->updated_at,
+                            'noi_dung_sua'     => $maintenanceTicket->cach_xu_ly,
+                            'ket_qua'          => \App\Enums\RepairResult::DA_XU_LY,
+                            'chi_phi'          => $maintenanceTicket->chi_phi,
+                        ]);
+
+                        // Cập nhật trạng thái máy tính/thiết bị sang active
+                        if ($incidentReport->ma_may_tinh) {
+                            Computer::where('id', $incidentReport->ma_may_tinh)
+                                ->where('trang_thai', 'maintenance')
+                                ->update(['trang_thai' => 'active']);
+                        }
+                        if ($incidentReport->ma_thiet_bi) {
+                            Equipment::where('id', $incidentReport->ma_thiet_bi)
+                                ->where('trang_thai', 'maintenance')
+                                ->update(['trang_thai' => 'active']);
+                        }
+                    }
+                }
+            });
 
             // Load quan hệ để trả resource đầy đủ
-            $maintenanceTicket->load([
+            $maintenanceTicket->refresh()->load([
                 'incidentReport:id,tieu_de,trang_thai,ma_may_tinh,ma_thiet_bi',
                 'assignee:id,ho_ten',
             ]);

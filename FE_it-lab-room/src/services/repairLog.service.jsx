@@ -18,12 +18,4 @@ export function getRepairLogs(params = {}) {
   });
 }
 
-/**
- * Tạo nhật ký sửa chữa mới (admin).
- */
-export function createRepairLog(payload) {
-  return fetcher(CONST_APIS.REPAIR_LOGS.STORE, {
-    method: CONST_METHODS.POST,
-    body: payload,
-  });
-}
+

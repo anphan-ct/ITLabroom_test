@@ -4,12 +4,10 @@
 
 // Trạng thái báo cáo sự cố
 export const INCIDENT_STATUS_LABELS = {
-  open: "Chờ tiếp nhận",
-  confirmed: "Đã tiếp nhận",
-  processing: "Đang xử lý",
-  resolved: "Đã xử lý",
+  open: "Chờ duyệt",
+  processing: "Đang sửa chữa",
+  resolved: "Đã khắc phục",
   rejected: "Từ chối",
-  unresolved: "Không thể khắc phục",
 };
 
 // Loại sự cố
@@ -41,7 +39,6 @@ export const SEVERITY_LABELS = Object.fromEntries(
 export const REPAIR_RESULT_OPTIONS = [
   { value: "dang_xu_ly", label: "Đang xử lý" },
   { value: "da_xu_ly", label: "Đã xử lý" },
-  { value: "khong_sua_duoc", label: "Không sửa được" },
   { value: "can_thay_the", label: "Cần thay thế" },
 ];
 
@@ -51,19 +48,26 @@ export const REPAIR_RESULT_LABELS = Object.fromEntries(
 
 // Trạng thái phiếu bảo trì
 export const TICKET_STATUS_LABELS = {
-  pending: "Chờ xử lý",
-  in_progress: "Đang xử lý",
-  completed: "Hoàn thành",
-  cancelled: "Đã huỷ",
-  unresolved: "Không thể khắc phục",
+  pending: "Chưa xử lý",
+  in_progress: "Đang tiến hành",
+  completed: "Đã hoàn tất",
 };
+
+// Loại bảo trì
+export const MAINTENANCE_TYPE_OPTIONS = [
+  { value: "sua_chua", label: "Sửa chữa" },
+  { value: "thay_the_linh_kien", label: "Thay thế linh kiện" },
+  { value: "ve_sinh_bao_duong", label: "Vệ sinh - Bảo dưỡng" },
+];
+
+export const MAINTENANCE_TYPE_LABELS = Object.fromEntries(
+  MAINTENANCE_TYPE_OPTIONS.map((o) => [o.value, o.label])
+);
 
 // Map hành động admin được phép theo trạng thái báo cáo sự cố (state machine)
 export const STATUS_ACTIONS_MAP = {
   open: ["confirm", "reject"],
-  confirmed: ["create_ticket", "reject"],
   processing: [],
   resolved: [],
   rejected: [],
-  unresolved: [],
 };

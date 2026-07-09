@@ -54,6 +54,35 @@ class RepairLogResource extends JsonResource
                     'ho_ten' => $this->repairer->ho_ten,
                 ] : null;
             }),
+
+            // Thông tin phòng (suy ra từ máy tính hoặc thiết bị)
+            'phong' => $this->getPhong(),
         ];
+    }
+
+    /**
+     * Suy ra thông tin phòng từ máy tính hoặc thiết bị.
+     */
+    private function getPhong(): ?array
+    {
+        // Ưu tiên lấy phòng từ máy tính
+        if ($this->relationLoaded('computer') && $this->computer && $this->computer->relationLoaded('room') && $this->computer->room) {
+            return [
+                'id'        => $this->computer->room->id,
+                'ma_phong'  => $this->computer->room->ma_phong,
+                'ten_phong' => $this->computer->room->ten_phong,
+            ];
+        }
+
+        // Nếu không có máy tính, lấy từ thiết bị
+        if ($this->relationLoaded('equipment') && $this->equipment && $this->equipment->relationLoaded('room') && $this->equipment->room) {
+            return [
+                'id'        => $this->equipment->room->id,
+                'ma_phong'  => $this->equipment->room->ma_phong,
+                'ten_phong' => $this->equipment->room->ten_phong,
+            ];
+        }
+
+        return null;
     }
 }

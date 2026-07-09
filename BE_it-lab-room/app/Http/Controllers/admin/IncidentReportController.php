@@ -87,39 +87,52 @@ class IncidentReportController extends Controller
     {
         try {
             $action = $request->validated()['action'];
+            $actionLabel = $action === 'confirm' ? 'tiếp nhận' : 'từ chối';
 
-            // Ánh xạ action sang trạng thái mới
-            $newStatus = match ($action) {
-                'confirm' => IncidentReportStatus::CONFIRMED,
-                'reject'  => IncidentReportStatus::REJECTED,
-            };
+            \Illuminate\Support\Facades\DB::transaction(function () use ($action, $incidentReport) {
+                // Khóa row để tránh race condition
+                $lockedReport = IncidentReport::where('id', $incidentReport->id)->lockForUpdate()->first();
 
-            $incidentReport->update(['trang_thai' => $newStatus]);
+                // Ánh xạ action sang trạng thái mới
+                $newStatus = match ($action) {
+                    'confirm' => IncidentReportStatus::PROCESSING,
+                    'reject'  => IncidentReportStatus::REJECTED,
+                };
 
-            // Điểm 2: Khi tiếp nhận (confirm) → đồng bộ máy/thiết bị sang bảo trì
-            if ($action === 'confirm') {
-                if ($incidentReport->ma_may_tinh) {
-                    Computer::where('id', $incidentReport->ma_may_tinh)
-                        ->where('trang_thai', 'active')
-                        ->update(['trang_thai' => 'maintenance']);
+                $lockedReport->update(['trang_thai' => $newStatus]);
+
+                // Khi tiếp nhận (confirm) → đồng bộ máy/thiết bị sang bảo trì và tạo phiếu bảo trì
+                if ($action === 'confirm') {
+                    if ($lockedReport->ma_may_tinh) {
+                        Computer::where('id', $lockedReport->ma_may_tinh)
+                            ->where('trang_thai', 'active')
+                            ->update(['trang_thai' => 'maintenance']);
+                    }
+                    if ($lockedReport->ma_thiet_bi) {
+                        Equipment::where('id', $lockedReport->ma_thiet_bi)
+                            ->where('trang_thai', 'active')
+                            ->update(['trang_thai' => 'maintenance']);
+                    }
+
+                    // Tự động tạo phiếu bảo trì nếu chưa có
+                    $existingTicket = \App\Models\MaintenanceTicket::where('ma_bao_cao_su_co', $lockedReport->id)->first();
+                    if (!$existingTicket) {
+                        \App\Models\MaintenanceTicket::create([
+                            'ma_bao_cao_su_co' => $lockedReport->id,
+                            'trang_thai' => \App\Enums\MaintenanceTicketStatus::PENDING,
+                        ]);
+                    }
                 }
-                if ($incidentReport->ma_thiet_bi) {
-                    Equipment::where('id', $incidentReport->ma_thiet_bi)
-                        ->where('trang_thai', 'active')
-                        ->update(['trang_thai' => 'maintenance']);
-                }
-            }
+            });
 
             // Reload quan hệ để trả resource đầy đủ
-            $incidentReport->load([
+            $incidentReport->refresh()->load([
                 'reporter:id,ho_ten',
                 'computer:id,ma_may,ten_may,ma_phong',
                 'computer.room:id,ma_phong,ten_phong',
                 'equipment:id,ten_thiet_bi,ma_phong',
                 'equipment.room:id,ma_phong,ten_phong',
             ]);
-
-            $actionLabel = $action === 'confirm' ? 'tiếp nhận' : 'từ chối';
 
             return response()->json([
                 'status'     => true,
