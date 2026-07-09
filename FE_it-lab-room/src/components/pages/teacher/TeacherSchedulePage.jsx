@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Clock3 } from "lucide-react";
 import AppShell from "../../common/AppShell";
 import SectionCard from "../../common/SectionCard";
 import ScheduleMatrix from "../../common/ScheduleMatrix";
@@ -49,6 +51,16 @@ export default function TeacherSchedulePage() {
     };
   }, []);
 
+  const renderAttendanceActions = (schedule) => (
+    <Link
+      to={`/teacher/attendance/schedules/${schedule.id}`}
+      className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-800"
+    >
+      <Clock3 size={15} />
+      Xem điểm danh
+    </Link>
+  );
+
   const weekOptions = useMemo(() => {
     return getScheduleWeekOptions(teacherSchedules, currentWeekRange, weeks);
   }, [currentWeekRange, teacherSchedules, weeks]);
@@ -66,15 +78,17 @@ export default function TeacherSchedulePage() {
     setSelectedWeek((currentAcademicWeek || weekOptions[0]).key);
   }, [selectedWeek, weekOptions]);
 
-  const filteredSchedules = useMemo(() => {
-    const selectedOption = weekOptions.find((option) => option.key === selectedWeek);
+  const selectedWeekOption = useMemo(() => {
+    return weekOptions.find((option) => option.key === selectedWeek);
+  }, [selectedWeek, weekOptions]);
 
-    if (!selectedOption) {
+  const filteredSchedules = useMemo(() => {
+    if (!selectedWeekOption) {
       return [];
     }
 
-    return teacherSchedules.filter((schedule) => isScheduleInWeek(schedule, selectedOption.range));
-  }, [selectedWeek, teacherSchedules, weekOptions]);
+    return teacherSchedules.filter((schedule) => isScheduleInWeek(schedule, selectedWeekOption.range));
+  }, [selectedWeekOption, teacherSchedules]);
 
   return (
     <AppShell role="teacher">
@@ -96,7 +110,12 @@ export default function TeacherSchedulePage() {
         {isLoading ? (
           <div className="rounded-lg border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">Đang tải lịch giảng dạy...</div>
         ) : filteredSchedules.length > 0 ? (
-          <ScheduleMatrix data={filteredSchedules} />
+          <ScheduleMatrix
+            data={filteredSchedules}
+            weekRange={selectedWeekOption?.range}
+            renderActions={renderAttendanceActions}
+            renderMobileActions={renderAttendanceActions}
+          />
         ) : (
           <div className="rounded-lg border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">Chưa có lịch giảng dạy cho tuần đã chọn.</div>
         )}

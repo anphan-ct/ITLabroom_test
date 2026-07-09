@@ -3,7 +3,6 @@ import {
   ArrowRightLeft,
   BookOpen,
   CalendarDays,
-  ClipboardCheck,
   ClipboardList,
   FileText,
   GraduationCap,
@@ -11,6 +10,7 @@ import {
   Monitor,
   PackagePlus,
   Presentation,
+  QrCode,
   RotateCcw,
   UserRound,
   Users,
@@ -74,11 +74,10 @@ export const roleMenus = {
         { to: "/admin/loan-return/returns", label: "Xác nhận trả máy", icon: RotateCcw },
       ],
     },
-    { to: "/admin/room-bookings", label: "Đăng ký phòng", icon: ClipboardList },
   ],
   teacher: [
     { to: "/teacher/schedules", label: "Lịch giảng dạy", icon: CalendarDays },
-    { to: "/teacher/attendance", label: "Điểm danh", icon: ClipboardCheck },
+    { to: "/teacher/attendance", label: "Điểm danh", icon: QrCode },
     {
       to: "/teacher/loan-requests",
       label: "Mượn máy",
@@ -103,6 +102,6 @@ export const roleMenus = {
   student: [
     { to: "/student/schedules", label: "Lịch học", icon: CalendarDays },
     { to: "/student/incidents", label: "Báo hỏng", icon: AlertTriangle },
-    { to: "/student/attendance", label: "Điểm danh", icon: ClipboardCheck },
+    { to: "/student/attendance", label: "Điểm danh", icon: QrCode },
   ],
 };

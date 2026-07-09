@@ -792,7 +792,7 @@ class ComputerLabScheduleController extends Controller
             'trang_thai' => [
                 'required',
                 'string',
-                Rule::in(['scheduled', 'completed', 'cancelled']),
+                Rule::in(['scheduled', 'completed', 'cancelled', 'open', 'closed']),
             ],
             'ghi_chu' => ['nullable', 'string'],
         ];

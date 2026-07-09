@@ -199,7 +199,7 @@ export default function RoomBookingPage() {
   const handleCancelBooking = async (request) => {
     const status = request.approval_status || request.trang_thai_duyet;
 
-    if (!["pending", "approved"].includes(status)) {
+    if (status !== "pending") {
       return;
     }
 
@@ -307,9 +307,7 @@ export default function RoomBookingPage() {
                     bookingRequests.map((request) => {
                       const approvalStatus =
                         request.approval_status || request.trang_thai_duyet;
-                      const canCancel = ["pending", "approved"].includes(
-                        approvalStatus
-                      );
+                      const canCancel = approvalStatus === "pending";
 
                       return (
                         <tr

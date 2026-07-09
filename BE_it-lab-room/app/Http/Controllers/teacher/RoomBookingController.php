@@ -187,10 +187,11 @@ class RoomBookingController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($booking->trang_thai_duyet === 'rejected') {
+            // Chỉ cho giảng viên hủy yêu cầu còn chờ duyệt; yêu cầu đã được admin xử lý phải giữ nguyên lịch sử.
+            if ($booking->trang_thai_duyet !== 'pending') {
                 return response()->json([
                     'status' => false,
-                    'message' => 'Yêu cầu đã bị từ chối nên không thể hủy',
+                    'message' => 'Chỉ có thể hủy yêu cầu đang chờ duyệt',
                     'error_code' => 409,
                     'data' => '',
                 ], 409);

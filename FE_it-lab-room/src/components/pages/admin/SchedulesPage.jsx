@@ -32,6 +32,18 @@ function getScheduleTypeLabel(scheduleType) {
   return labels[scheduleType] || scheduleType || "-";
 }
 
+function getScheduleStatusLabel(status) {
+  const labels = {
+    scheduled: "Đã lên lịch",
+    completed: "Hoàn thành",
+    cancelled: "Đã hủy",
+    open: "Đang mở",
+    closed: "Đã đóng",
+  };
+
+  return labels[status] || status || "-";
+}
+
 function mapSchedule(item) {
   return {
     id: item.id,
@@ -46,7 +58,7 @@ function mapSchedule(item) {
     lessonStart: item.so_tiet_bat_dau,
     lessonEnd: item.so_tiet_ket_thuc,
     scheduleType: getScheduleTypeLabel(item.loai_lich),
-    status: item.trang_thai,
+    status: getScheduleStatusLabel(item.trang_thai),
     note: item.ghi_chu || "",
   };
 }

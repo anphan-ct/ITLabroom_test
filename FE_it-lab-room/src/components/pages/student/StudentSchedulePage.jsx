@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Clock3 } from "lucide-react";
 import AppShell from "../../common/AppShell";
 import SectionCard from "../../common/SectionCard";
 import ScheduleMatrix from "../../common/ScheduleMatrix";
@@ -49,6 +51,16 @@ export default function StudentSchedulePage() {
     };
   }, []);
 
+  const renderAttendanceActions = (schedule) => (
+    <Link
+      to={`/student/attendance/${schedule.id}`}
+      className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-800"
+    >
+      <Clock3 size={15} />
+      Xem điểm danh
+    </Link>
+  );
+
   const weekOptions = useMemo(() => {
     return getScheduleWeekOptions(studentSchedules, currentWeekRange, weeks);
   }, [currentWeekRange, studentSchedules, weeks]);
@@ -66,17 +78,19 @@ export default function StudentSchedulePage() {
     setSelectedWeek((currentAcademicWeek || weekOptions[0]).key);
   }, [selectedWeek, weekOptions]);
 
-  const filteredSchedules = useMemo(() => {
-    const selectedOption = weekOptions.find((option) => option.key === selectedWeek);
+  const selectedWeekOption = useMemo(() => {
+    return weekOptions.find((option) => option.key === selectedWeek);
+  }, [selectedWeek, weekOptions]);
 
-    if (!selectedOption) {
+  const filteredSchedules = useMemo(() => {
+    if (!selectedWeekOption) {
       return [];
     }
 
     return studentSchedules.filter((item) => (
-      isScheduleInWeek(item, selectedOption.range)
+      isScheduleInWeek(item, selectedWeekOption.range)
     ));
-  }, [selectedWeek, studentSchedules, weekOptions]);
+  }, [selectedWeekOption, studentSchedules]);
 
   return (
     <AppShell role="student">
@@ -86,21 +100,40 @@ export default function StudentSchedulePage() {
             Lớp {studentClassCode || "chưa phân lớp"}
           </div>
 
-          <select value={selectedWeek} onChange={(event) => setSelectedWeek(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm outline-none">
-            {weekOptions.map((weekItem) => <option key={weekItem.key} value={weekItem.key}>{weekItem.label}</option>)}
+          <select
+            value={selectedWeek}
+            onChange={(event) => setSelectedWeek(event.target.value)}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm outline-none"
+          >
+            {weekOptions.map((weekItem) => (
+              <option key={weekItem.key} value={weekItem.key}>
+                {weekItem.label}
+              </option>
+            ))}
           </select>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div>
+          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+            {error}
+          </div>
         )}
 
         {isLoading ? (
-          <div className="rounded-lg border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">Đang tải lịch học...</div>
+          <div className="rounded-lg border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">
+            Đang tải lịch học...
+          </div>
         ) : filteredSchedules.length > 0 ? (
-          <ScheduleMatrix data={filteredSchedules} />
+          <ScheduleMatrix
+            data={filteredSchedules}
+            weekRange={selectedWeekOption?.range}
+            renderActions={renderAttendanceActions}
+            renderMobileActions={renderAttendanceActions}
+          />
         ) : (
-          <div className="rounded-lg border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">Chưa có lịch học cho tuần đã chọn.</div>
+          <div className="rounded-lg border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">
+            Chưa có lịch học cho tuần đã chọn.
+          </div>
         )}
       </SectionCard>
     </AppShell>

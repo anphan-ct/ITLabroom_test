@@ -1,10 +1,5 @@
 export function mapComputerLabSchedule(item) {
-  const attendanceWindow = normalizeAttendanceWindow(
-    item.attendance_window,
-    item.ngay_hoc_cu_the,
-    item.so_tiet_bat_dau,
-    item.so_tiet_ket_thuc
-  );
+  const attendanceWindow = normalizeAttendanceWindow(item.attendance_window, item.trang_thai);
 
   return {
     id: item.id,
@@ -19,6 +14,7 @@ export function mapComputerLabSchedule(item) {
     lessonEnd: item.so_tiet_ket_thuc,
     time: `Tiết ${item.so_tiet_bat_dau}-${item.so_tiet_ket_thuc}`,
     scheduleType: getScheduleTypeLabel(item.loai_lich),
+    rawStatus: item.trang_thai,
     status: attendanceWindow.statusLabel || item.trang_thai,
     attendanceWindow,
     note: item.ghi_chu || "",
@@ -37,86 +33,25 @@ function getScheduleTypeLabel(scheduleType) {
   return labels[scheduleType] || scheduleType || "-";
 }
 
-function normalizeAttendanceWindow(attendanceWindow, studyDate, lessonStart, lessonEnd) {
-  if (!attendanceWindow) {
-    return resolveAttendanceWindow(studyDate, lessonStart, lessonEnd);
-  }
-
-  return {
-    status: attendanceWindow.status,
-    statusLabel: attendanceWindow.status_label || attendanceWindow.statusLabel,
-    startsAt: attendanceWindow.starts_at || attendanceWindow.startsAt,
-    endsAt: attendanceWindow.ends_at || attendanceWindow.endsAt,
-    serverTime: attendanceWindow.server_time || attendanceWindow.serverTime,
-  };
-}
-
-const lessonTimes = {
-  1: { start: "06:30", end: "07:15" },
-  2: { start: "07:20", end: "08:05" },
-  3: { start: "08:15", end: "09:00" },
-  4: { start: "09:05", end: "09:50" },
-  5: { start: "09:55", end: "10:40" },
-  6: { start: "10:45", end: "11:30" },
-  7: { start: "12:30", end: "13:15" },
-  8: { start: "13:20", end: "14:05" },
-  9: { start: "14:15", end: "15:00" },
-  10: { start: "15:05", end: "15:50" },
-  11: { start: "15:55", end: "16:40" },
-  12: { start: "16:45", end: "17:30" },
-};
-
-function toLocalDateTime(date, time) {
-  if (!date || !time) {
-    return null;
-  }
-
-  const [year, month, day] = date.split("-").map(Number);
-  const [hour, minute] = time.split(":").map(Number);
-
-  return new Date(year, month - 1, day, hour, minute, 0);
-}
-
-export function resolveAttendanceWindow(studyDate, lessonStart, lessonEnd) {
-  const startTime = lessonTimes[lessonStart]?.start;
-  const endTime = lessonTimes[lessonEnd]?.end;
-  const startsAt = toLocalDateTime(studyDate, startTime);
-  const endsAt = toLocalDateTime(studyDate, endTime);
-  const now = new Date();
-
-  if (!startsAt || !endsAt) {
+function normalizeAttendanceWindow(attendanceWindow, scheduleStatus) {
+  if (attendanceWindow) {
     return {
-      status: "unknown",
-      statusLabel: "Chưa xác định",
-      startsAt: "",
-      endsAt: "",
+      status: attendanceWindow.status,
+      statusLabel: attendanceWindow.status_label || attendanceWindow.statusLabel,
+      closedAt: attendanceWindow.closed_at || attendanceWindow.closedAt,
+      isExpired: Boolean(attendanceWindow.is_expired || attendanceWindow.isExpired),
     };
   }
 
-  if (now < startsAt) {
-    return {
-      status: "not_open",
-      statusLabel: "Chưa mở",
-      startsAt,
-      endsAt,
-    };
+  if (scheduleStatus === "open") {
+    return { status: "open", statusLabel: "Đang mở" };
   }
 
-  if (now > endsAt) {
-    return {
-      status: "closed",
-      statusLabel: "Đã đóng",
-      startsAt,
-      endsAt,
-    };
+  if (scheduleStatus === "closed" || scheduleStatus === "completed" || scheduleStatus === "cancelled") {
+    return { status: "closed", statusLabel: "Đã đóng" };
   }
 
-  return {
-    status: "open",
-    statusLabel: "Đang diễn ra",
-    startsAt,
-    endsAt,
-  };
+  return { status: "not_open", statusLabel: "Chưa mở" };
 }
 
 export function mapComputerLabWeekOption(item) {

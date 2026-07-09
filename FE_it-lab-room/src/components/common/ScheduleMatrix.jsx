@@ -34,7 +34,62 @@ function getSchedulesByDay(data, day) {
     .sort(sortSchedules);
 }
 
-function getDayDate(data, day) {
+function formatHeaderDate(dateValue) {
+  if (!dateValue) {
+    return "";
+  }
+
+  const [year, month, date] = dateValue.split("-");
+
+  return `${date}/${month}/${year}`;
+}
+
+function addDays(dateValue, daysToAdd) {
+  if (!dateValue) {
+    return "";
+  }
+
+  const [year, month, date] = dateValue.split("-").map(Number);
+  const nextDate = new Date(year, month - 1, date);
+  nextDate.setDate(nextDate.getDate() + daysToAdd);
+
+  const nextYear = nextDate.getFullYear();
+  const nextMonth = String(nextDate.getMonth() + 1).padStart(2, "0");
+  const nextDay = String(nextDate.getDate()).padStart(2, "0");
+
+  return `${nextYear}-${nextMonth}-${nextDay}`;
+}
+
+function getDayLabel(dateValue) {
+  const labels = [
+    "Chủ nhật",
+    "Thứ 2",
+    "Thứ 3",
+    "Thứ 4",
+    "Thứ 5",
+    "Thứ 6",
+    "Thứ 7",
+  ];
+  const [year, month, date] = dateValue.split("-").map(Number);
+
+  return labels[new Date(year, month - 1, date).getDay()];
+}
+
+function getDayDate(data, day, weekRange) {
+  if (weekRange?.start && weekRange?.end) {
+    let currentDate = weekRange.start;
+
+    while (currentDate <= weekRange.end) {
+      if (getDayLabel(currentDate) === day) {
+        return currentDate;
+      }
+
+      currentDate = addDays(currentDate, 1);
+    }
+
+    return "";
+  }
+
   return getSchedulesByDay(data, day).find((schedule) => schedule.studyDate)?.studyDate || "";
 }
 
@@ -67,6 +122,7 @@ function formatStudyDate(studyDate, day) {
 export default function ScheduleMatrix({
   data,
   days = defaultDays,
+  weekRange,
   renderActions,
   renderMobileActions,
 }) {
@@ -225,14 +281,14 @@ export default function ScheduleMatrix({
         <div className="grid min-w-[1260px] grid-cols-7 divide-x divide-slate-200">
           {days.map((day) => {
             const daySchedules = getSchedulesByDay(data, day);
-            const dayDate = getDayDate(data, day);
+            const dayDate = getDayDate(data, day, weekRange);
 
             return (
               <section key={day} className="min-h-[440px] bg-slate-50/50">
                 <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-3 py-3 text-center">
                   <h4 className="text-sm font-extrabold text-slate-900">{day}</h4>
                   <p className="mt-0.5 min-h-4 text-xs font-medium text-slate-500">
-                    {dayDate || `${daySchedules.length} lịch`}
+                    {dayDate ? formatHeaderDate(dayDate) : `${daySchedules.length} lịch`}
                   </p>
                 </div>
 

@@ -11,6 +11,7 @@ use App\Models\Attendance;
 use App\Models\Computer;
 use App\Models\ComputerLabSchedule;
 use App\Models\CourseSectionStudent;
+use App\Support\AttendanceWindow;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -19,21 +20,6 @@ use Throwable;
 class AttendanceController extends Controller
 {
     private const ATTENDANCE_TIMEZONE = 'Asia/Ho_Chi_Minh';
-
-    private const LESSON_TIMES = [
-        1 => ['start' => '06:30', 'end' => '07:15'],
-        2 => ['start' => '07:20', 'end' => '08:05'],
-        3 => ['start' => '08:15', 'end' => '09:00'],
-        4 => ['start' => '09:05', 'end' => '09:50'],
-        5 => ['start' => '09:55', 'end' => '10:40'],
-        6 => ['start' => '10:45', 'end' => '11:30'],
-        7 => ['start' => '12:30', 'end' => '13:15'],
-        8 => ['start' => '13:20', 'end' => '14:05'],
-        9 => ['start' => '14:15', 'end' => '15:00'],
-        10 => ['start' => '15:05', 'end' => '15:50'],
-        11 => ['start' => '15:55', 'end' => '16:40'],
-        12 => ['start' => '16:45', 'end' => '17:30'],
-    ];
 
     public function showBySchedule(
         StudentAttendanceRequest $request,
@@ -86,7 +72,7 @@ class AttendanceController extends Controller
 
             $window = $this->attendanceWindow($computerLabSchedule);
             if ($window['status'] === 'not_open') {
-                return $this->response(false, 'Chưa tới thời gian điểm danh', 409, $window, 409);
+                return $this->response(false, 'Điểm danh chưa mở', 409, $window, 409);
             }
 
             if ($window['status'] === 'closed') {
@@ -194,7 +180,25 @@ class AttendanceController extends Controller
             ->pluck('ma_may_tinh');
 
         return Computer::query()
-            ->select(['id', 'ma_phong', 'ma_may', 'ten_may', 'vi_tri', 'ma_qr', 'trang_thai', 'ghi_chu'])
+            ->select([
+                'id',
+                'ma_phong',
+                'ma_may',
+                'ten_may',
+                'vi_tri',
+                'ma_qr',
+                'bo_xu_ly',
+                'ram',
+                'card_do_hoa',
+                'bo_mach_chu',
+                'man_hinh',
+                'ban_phim',
+                'chuot',
+                'hdd',
+                'ssd',
+                'trang_thai',
+                'ghi_chu',
+            ])
             ->with('room:id,ma_phong,ten_phong')
             ->where('ma_phong', $schedule->ma_phong)
             ->where('trang_thai', 'active')
@@ -214,31 +218,7 @@ class AttendanceController extends Controller
 
     private function attendanceWindow(ComputerLabSchedule $schedule): array
     {
-        $startDate = $schedule->ngay_hoc_cu_the?->format('Y-m-d');
-        $startTime = self::LESSON_TIMES[$schedule->so_tiet_bat_dau]['start'] ?? '00:00';
-        $endTime = self::LESSON_TIMES[$schedule->so_tiet_ket_thuc]['end'] ?? '23:59';
-        $startsAt = Carbon::parse($startDate.' '.$startTime, self::ATTENDANCE_TIMEZONE);
-        $endsAt = Carbon::parse($startDate.' '.$endTime, self::ATTENDANCE_TIMEZONE);
-        $now = Carbon::now(self::ATTENDANCE_TIMEZONE);
-
-        if ($now->lt($startsAt)) {
-            $status = 'not_open';
-            $statusLabel = 'Chưa mở';
-        } elseif ($now->gt($endsAt)) {
-            $status = 'closed';
-            $statusLabel = 'Đã đóng';
-        } else {
-            $status = 'open';
-            $statusLabel = 'Đang diễn ra';
-        }
-
-        return [
-            'status' => $status,
-            'status_label' => $statusLabel,
-            'starts_at' => $startsAt->format('Y-m-d H:i:s'),
-            'ends_at' => $endsAt->format('Y-m-d H:i:s'),
-            'server_time' => $now->format('Y-m-d H:i:s'),
-        ];
+        return AttendanceWindow::resolve($schedule);
     }
 
     private function scheduleRelations(): array

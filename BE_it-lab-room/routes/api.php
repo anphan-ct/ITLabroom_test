@@ -58,6 +58,8 @@ Route::middleware('auth:sanctum')->get('/computers/qr/{qrCode}', [ComputerContro
 Route::middleware(['auth:sanctum', 'abilities:teacher'])->group(function () {
     Route::get('/teacher/computer-lab-schedules', [TeacherComputerLabScheduleController::class, 'index']);
     Route::get('/teacher/attendance/schedules/{computerLabSchedule}', [TeacherAttendanceController::class, 'showBySchedule']);
+    Route::patch('/teacher/attendance/schedules/{computerLabSchedule}/status', [TeacherAttendanceController::class, 'updateStatus']);
+    Route::post('/teacher/attendance/schedules/{computerLabSchedule}/students/{student}/check-in', [TeacherAttendanceController::class, 'checkInStudent']);
     Route::get('/teacher/room-bookings', [TeacherRoomBookingController::class, 'index']);
     Route::get('/teacher/room-bookings/availability', [TeacherRoomBookingController::class, 'availability']);
     Route::post('/teacher/room-bookings', [TeacherRoomBookingController::class, 'store']);

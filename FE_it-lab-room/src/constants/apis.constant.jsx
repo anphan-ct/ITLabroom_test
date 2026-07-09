@@ -93,6 +93,8 @@ export const CONST_APIS = {
   },
   TEACHER_ATTENDANCE: {
     SCHEDULE: (scheduleId) => `/api/teacher/attendance/schedules/${scheduleId}`,
+    UPDATE_STATUS: (scheduleId) => `/api/teacher/attendance/schedules/${scheduleId}/status`,
+    CHECK_IN_STUDENT: (scheduleId, studentId) => `/api/teacher/attendance/schedules/${scheduleId}/students/${studentId}/check-in`,
   },
   ADMIN_ROOM_BOOKINGS: {
     INDEX: "/api/admin/room-bookings",

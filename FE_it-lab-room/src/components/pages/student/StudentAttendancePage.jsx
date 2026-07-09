@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  CalendarDays,
   ClipboardCheck,
-  DoorOpen,
   Search,
-  Users,
 } from "lucide-react";
 import AppShell from "../../common/AppShell";
 import DataTable from "../../common/DataTable";
@@ -23,10 +20,6 @@ import {
 } from "../../../helpers/computer-lab-schedule.helper";
 import { getCurrentStudentClassCode } from "../../../helpers/student-class.helper";
 import { getStudentComputerLabSchedulesFromApi } from "../../../services/schedules.service";
-
-function getUniqueCount(items) {
-  return new Set(items.filter((item) => item && item !== "-")).size;
-}
 
 export default function StudentAttendancePage() {
   const currentWeekRange = useMemo(() => getWeekRangeForDate(), []);
@@ -119,65 +112,13 @@ export default function StudentAttendancePage() {
     });
   }, [searchKeyword, selectedWeekSchedules]);
 
-  const today = formatDateInput(new Date());
-  const todayScheduleCount = schedules.filter((schedule) => schedule.studyDate === today).length;
-  const roomCount = getUniqueCount(selectedWeekSchedules.map((schedule) => schedule.room));
-  const subjectCount = getUniqueCount(selectedWeekSchedules.map((schedule) => schedule.subject));
-
   return (
     <AppShell
       role="student"
       title="Điểm danh buổi học"
       subtitle="Chọn lịch phòng máy của bạn để xem thông tin điểm danh"
     >
-      <div className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-              <ClipboardCheck size={20} />
-            </span>
-            <div>
-              <p className="text-xs font-semibold uppercase text-slate-500">Lịch phòng máy</p>
-              <p className="text-xl font-bold text-slate-900">{selectedWeekSchedules.length}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-              <CalendarDays size={20} />
-            </span>
-            <div>
-              <p className="text-xs font-semibold uppercase text-slate-500">Hôm nay</p>
-              <p className="text-xl font-bold text-slate-900">{todayScheduleCount}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-700">
-              <DoorOpen size={20} />
-            </span>
-            <div>
-              <p className="text-xs font-semibold uppercase text-slate-500">Phòng</p>
-              <p className="text-xl font-bold text-slate-900">{roomCount}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
-              <Users size={20} />
-            </span>
-            <div>
-              <p className="text-xs font-semibold uppercase text-slate-500">Môn học</p>
-              <p className="text-xl font-bold text-slate-900">{subjectCount}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-6">
+      <div>
         <SectionCard
           title="Danh sách lịch phòng máy"
           rightAction={
@@ -245,7 +186,7 @@ export default function StudentAttendancePage() {
                     className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-800"
                   >
                     <ClipboardCheck size={16} />
-                    Chi tiết
+                    Xem điểm danh
                   </Link>
                 ),
               },
