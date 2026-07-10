@@ -13,7 +13,8 @@ class ReturnRequestResource extends JsonResource
             'id'              => $this->id,
             'ma_phieu_tra'    => $this->ma_phieu_tra,
             'ma_phieu_muon'   => $this->loanRequest?->ma_phieu_muon,
-            'ten_giang_vien'  => $this->teacher?->user?->ho_ten,
+            'nguoi_muon'      => $this->loanRequest?->nguoi_muon,
+            'ten_giang_vien'  => $this->loanRequest?->nguoi_muon,
             'thoi_gian_tra'   => $this->thoi_gian_tra,
             'so_luong'        => $this->so_luong,
             'ghi_chu'         => $this->ghi_chu,
@@ -21,10 +22,12 @@ class ReturnRequestResource extends JsonResource
             'loan_request'    => $this->whenLoaded('loanRequest', fn () => [
                 'id' => $this->loanRequest->id,
                 'ma_phieu_muon' => $this->loanRequest->ma_phieu_muon,
+                'nguoi_muon' => $this->loanRequest->nguoi_muon,
                 'details' => $this->loanRequest->details->map(fn ($d) => [
                     'id' => $d->id,
                     'ma_may_tinh' => $d->ma_may_tinh,
                     'tinh_trang_khi_muon' => $d->tinh_trang_khi_muon,
+                    'trang_thai_tra' => $d->trang_thai_tra,
                     'ghi_chu' => $d->ghi_chu,
                     'computer' => $d->computer ? [
                         'id' => $d->computer->id,

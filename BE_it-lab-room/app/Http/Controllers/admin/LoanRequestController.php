@@ -21,7 +21,7 @@ class LoanRequestController extends Controller
         try {
             $status = $request->query('trang_thai', LoanRequestStatus::PENDING->value);
             
-            $query = LoanRequest::with(['teacher.user', 'department', 'details.computer']);
+            $query = LoanRequest::with(['department', 'details.computer']);
             
             if ($status !== 'all') {
                 $query->where('trang_thai', $status);
@@ -94,6 +94,7 @@ class LoanRequestController extends Controller
                     'ma_phieu_muon' => $loanRequest->id,
                     'ma_may_tinh' => $computer->id,
                     'tinh_trang_khi_muon' => $tinhTrang,
+                    'trang_thai_tra' => 'Chưa trả',
                     'ghi_chu' => $ghiChu,
                 ]);
             }

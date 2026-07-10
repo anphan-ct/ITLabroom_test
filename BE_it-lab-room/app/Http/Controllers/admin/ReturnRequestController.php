@@ -20,7 +20,7 @@ class ReturnRequestController extends Controller
         try {
             $status = $request->query('trang_thai', 'all');
             
-            $query = ReturnRequest::with(['teacher.user', 'loanRequest.details.computer.room', 'details.computer']);
+            $query = ReturnRequest::with(['loanRequest.details.computer.room', 'details.computer']);
             
             if ($status !== 'all') {
                 $query->where('trang_thai', $status);
@@ -73,6 +73,11 @@ class ReturnRequestController extends Controller
                     'tinh_trang_khi_tra' => $tinhTrang,
                     'ghi_chu' => $cond['ghi_chu'] ?? null,
                 ]);
+
+                // Đánh dấu máy trong chi tiết phiếu mượn đã được trả.
+                $returnRequest->loanRequest?->details()
+                    ->where('ma_may_tinh', $computerId)
+                    ->update(['trang_thai_tra' => 'Đã trả']);
             }
 
             $returnRequest->update(['trang_thai' => ReturnRequestStatus::CONFIRMED->value]);

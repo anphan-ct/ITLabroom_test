@@ -39,7 +39,7 @@ class AttendanceController extends Controller
 
             $computerLabSchedule->load($this->scheduleRelations());
             $attendance = $this->studentAttendance($computerLabSchedule->id, $student->id);
-            $computers = $this->availableComputers($computerLabSchedule, $attendance?->ma_may_tinh);
+            $computers = $this->availableComputers($computerLabSchedule);
 
             return $this->response(true, 'Lấy chi tiết điểm danh thành công', 200, [
                 'schedule' => new ComputerLabScheduleResource($computerLabSchedule),
@@ -103,16 +103,7 @@ class AttendanceController extends Controller
                     return $existingAttendance;
                 }
 
-                $computerIsUsed = Attendance::query()
-                    ->where('ma_lich_su_dung', $computerLabSchedule->id)
-                    ->where('ma_may_tinh', $computer->id)
-                    ->lockForUpdate()
-                    ->exists();
-
-                if ($computerIsUsed) {
-                    return null;
-                }
-
+                // Cho phép nhiều sinh viên điểm danh cùng một máy khi thực tế phòng học cần dùng chung máy.
                 // Ghi nhận điểm danh đúng thời điểm máy chủ để tránh gian lận giờ trên thiết bị.
                 return Attendance::query()->create([
                     'ma_lich_su_dung' => $computerLabSchedule->id,
@@ -123,10 +114,6 @@ class AttendanceController extends Controller
                     'ghi_chu' => null,
                 ]);
             });
-
-            if (! $attendance) {
-                return $this->response(false, 'Máy tính này đã được sinh viên khác điểm danh', 409, '', 409);
-            }
 
             $attendance->load('computer:id,ma_may,ten_may,vi_tri,ma_qr');
 
@@ -171,14 +158,8 @@ class AttendanceController extends Controller
             ->first();
     }
 
-    private function availableComputers(ComputerLabSchedule $schedule, ?int $selectedComputerId)
+    private function availableComputers(ComputerLabSchedule $schedule)
     {
-        $usedComputerIds = Attendance::query()
-            ->where('ma_lich_su_dung', $schedule->id)
-            ->when($selectedComputerId, fn ($query) => $query->where('ma_may_tinh', '!=', $selectedComputerId))
-            ->whereNotNull('ma_may_tinh')
-            ->pluck('ma_may_tinh');
-
         return Computer::query()
             ->select([
                 'id',
@@ -202,7 +183,6 @@ class AttendanceController extends Controller
             ->with('room:id,ma_phong,ten_phong')
             ->where('ma_phong', $schedule->ma_phong)
             ->where('trang_thai', 'active')
-            ->whereNotIn('id', $usedComputerIds)
             ->orderBy('ma_may')
             ->get();
     }

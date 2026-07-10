@@ -268,17 +268,7 @@ class AttendanceController extends Controller
                     return $existingAttendance;
                 }
 
-                $computerIsUsed = Attendance::query()
-                    ->where('ma_lich_su_dung', $computerLabSchedule->id)
-                    ->where('ma_may_tinh', $computer->id)
-                    ->lockForUpdate()
-                    ->exists();
-
-                if ($computerIsUsed) {
-                    return null;
-                }
-
-                // Giảng viên điểm danh hộ sinh viên với thao tác chọn máy giống sinh viên tự điểm danh.
+                // Cho phép nhiều sinh viên điểm danh cùng một máy khi giảng viên điểm danh hộ.
                 return Attendance::query()->create([
                     'ma_lich_su_dung' => $computerLabSchedule->id,
                     'ma_sinh_vien' => $student->id,
@@ -288,15 +278,6 @@ class AttendanceController extends Controller
                     'ghi_chu' => $data['note'] ?? 'Giảng viên điểm danh hộ',
                 ]);
             });
-
-            if (! $attendance) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Máy tính này đã được sinh viên khác điểm danh',
-                    'error_code' => 409,
-                    'data' => '',
-                ], 409);
-            }
 
             $student->load(['user:id,ho_ten,email', 'class:id,ma_lop']);
             $attendance->load('computer:id,ma_may,ten_may,vi_tri');
@@ -350,11 +331,6 @@ class AttendanceController extends Controller
 
     private function availableComputers(ComputerLabSchedule $schedule)
     {
-        $usedComputerIds = Attendance::query()
-            ->where('ma_lich_su_dung', $schedule->id)
-            ->whereNotNull('ma_may_tinh')
-            ->pluck('ma_may_tinh');
-
         return Computer::query()
             ->select([
                 'id',
@@ -378,7 +354,6 @@ class AttendanceController extends Controller
             ->with('room:id,ma_phong,ten_phong')
             ->where('ma_phong', $schedule->ma_phong)
             ->where('trang_thai', 'active')
-            ->whereNotIn('id', $usedComputerIds)
             ->orderBy('ma_may')
             ->get();
     }

@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, QrCode } from "lucide-react";
+import { ArrowLeft, Printer } from "lucide-react";
 import AppShell from "../../common/AppShell";
 import SectionCard from "../../common/SectionCard";
 import StatusBadge from "../../common/StatusBadge";
 import {
-  generateComputerQrCodeFromApi,
   getComputerFromApi,
   getComputerQrImageUrl,
 } from "../../../services/computer.service";
@@ -41,12 +40,19 @@ function NoteItem({ value }) {
   );
 }
 
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 export default function ComputerDetailPage() {
   const { computerId } = useParams();
   const [computer, setComputer] = useState(null);
   const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
-  const [isGeneratingQr, setIsGeneratingQr] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -68,20 +74,114 @@ export default function ComputerDetailPage() {
     };
   }, [computerId]);
 
-  const handleGenerateQrCode = async () => {
-    setError("");
-    setSuccessMessage("");
-    setIsGeneratingQr(true);
-
-    try {
-      const response = await generateComputerQrCodeFromApi(computerId);
-      setComputer(response.data);
-      setSuccessMessage("Đã tạo mã QR máy tính.");
-    } catch (apiError) {
-      setError(apiError.message || "Không thể tạo mã QR cho máy tính.");
-    } finally {
-      setIsGeneratingQr(false);
+  const handlePrintQrCode = () => {
+    if (!computer?.ma_qr) {
+      setError("Máy tính này chưa có mã QR để in.");
+      return;
     }
+
+    const printWindow = window.open("", "_blank", "width=520,height=720");
+
+    if (!printWindow) {
+      setError("Trình duyệt đang chặn cửa sổ in. Vui lòng cho phép pop-up rồi thử lại.");
+      return;
+    }
+
+    const qrImageUrl = getComputerQrImageUrl(computer.ma_qr, 320);
+    const roomLabel = [computer.phong?.ma_phong, computer.phong?.ten_phong].filter(Boolean).join(" - ");
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>In mã QR ${escapeHtml(computer.ma_may)}</title>
+          <style>
+            @page { size: 80mm 100mm; margin: 6mm; }
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              color: #0f172a;
+              font-family: Arial, sans-serif;
+              background: #ffffff;
+            }
+            .label {
+              width: 100%;
+              min-height: 88mm;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              gap: 8px;
+              border: 1px solid #cbd5e1;
+              padding: 12px;
+              text-align: center;
+            }
+            .title {
+              font-size: 18px;
+              font-weight: 800;
+              line-height: 1.2;
+            }
+            .room {
+              font-size: 12px;
+              font-weight: 700;
+              color: #475569;
+            }
+            img {
+              width: 58mm;
+              height: 58mm;
+              image-rendering: crisp-edges;
+            }
+            .code {
+              max-width: 100%;
+              overflow-wrap: anywhere;
+              font-size: 10px;
+              color: #334155;
+            }
+            .screen-actions {
+              margin: 14px auto;
+              display: flex;
+              justify-content: center;
+              gap: 8px;
+            }
+            button {
+              border: 0;
+              border-radius: 6px;
+              background: #2563eb;
+              color: #ffffff;
+              cursor: pointer;
+              font-size: 13px;
+              font-weight: 700;
+              padding: 8px 12px;
+            }
+            @media print {
+              .screen-actions { display: none; }
+              .label { border-color: #000000; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="label">
+            <div class="title">${escapeHtml(computer.ma_may)}</div>
+            <div class="room">${escapeHtml(roomLabel || computer.ten_may || "")}</div>
+            <img src="${qrImageUrl}" alt="QR ${escapeHtml(computer.ma_may)}" />
+            <div class="code">${escapeHtml(computer.ma_qr)}</div>
+          </div>
+          <div class="screen-actions">
+            <button type="button" onclick="window.print()">In mã QR</button>
+            <button type="button" onclick="window.close()">Đóng</button>
+          </div>
+          <script>
+            const image = document.querySelector("img");
+            image.addEventListener("load", () => {
+              window.focus();
+              setTimeout(() => window.print(), 250);
+            });
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   return (
@@ -104,12 +204,6 @@ export default function ComputerDetailPage() {
             {error}
           </div>
         )}
-        {successMessage && (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-            {successMessage}
-          </div>
-        )}
-
         {computer && (
           <>
             <SectionCard title="Thông tin máy tính">
@@ -130,7 +224,20 @@ export default function ComputerDetailPage() {
               </div>
             </SectionCard>
 
-            <SectionCard title="Mã QR">
+            <SectionCard
+              title="Mã QR"
+              rightAction={
+                <button
+                  type="button"
+                  onClick={handlePrintQrCode}
+                  disabled={!computer.ma_qr}
+                  className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  <Printer size={16} />
+                  In mã QR
+                </button>
+              }
+            >
               {computer.ma_qr ? (
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                   <div className="w-fit rounded-lg border border-slate-200 bg-white p-3">

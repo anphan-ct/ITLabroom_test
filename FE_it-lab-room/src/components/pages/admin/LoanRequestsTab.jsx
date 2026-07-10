@@ -224,7 +224,7 @@ export default function LoanRequestsTab() {
       setPageError("");
       const [reqRes, roomRes] = await Promise.all([
         loanRequestService.getAdminLoanRequests(statusFilter, 1),
-        getRoomsFromApi()
+        getRoomsFromApi({ includeStorage: true })
       ]);
       if (reqRes.status) {
         setRequests(reqRes.data?.data || []);

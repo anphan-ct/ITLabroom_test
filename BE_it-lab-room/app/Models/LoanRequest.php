@@ -13,12 +13,14 @@ class LoanRequest extends Model
     protected $table = 'phieu_muon_may';
     protected $fillable = [
         'ma_phieu_muon',
+        'nguoi_muon',
         'ma_giang_vien',
         'ma_phong_ban',
         'ngay_muon',
         'so_luong',
         'ly_do_muon',
         'trang_thai',
+        'ghi_chu',
     ];
 
     protected $casts = [
@@ -33,6 +35,30 @@ class LoanRequest extends Model
 
     public function getSoLuongConLaiAttribute()
     {
+        if ($this->relationLoaded('details')) {
+            $notReturned = $this->details
+                ->where('trang_thai_tra', '!=', 'Đã trả')
+                ->count();
+
+            $pendingReturns = $this->returnRequests()
+                ->where('trang_thai', \App\Enums\ReturnRequestStatus::PENDING->value)
+                ->sum('so_luong');
+
+            return max(0, $notReturned - $pendingReturns);
+        }
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('chi_tiet_phieu_muon_may', 'trang_thai_tra')) {
+            $notReturned = $this->details()
+                ->where('trang_thai_tra', '!=', 'Đã trả')
+                ->count();
+
+            $pendingReturns = $this->returnRequests()
+                ->where('trang_thai', \App\Enums\ReturnRequestStatus::PENDING->value)
+                ->sum('so_luong');
+
+            return max(0, $notReturned - $pendingReturns);
+        }
+
         $totalReturned = $this->returnRequests()
             ->whereIn('trang_thai', [
                 \App\Enums\ReturnRequestStatus::PENDING->value,

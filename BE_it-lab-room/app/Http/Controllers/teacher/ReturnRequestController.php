@@ -18,9 +18,12 @@ class ReturnRequestController extends Controller
     public function index()
     {
         try {
-            $teacherId = Auth::user()->teacher->id;
-            $requests = ReturnRequest::where('ma_giang_vien', $teacherId)
-                ->with(['teacher.user', 'loanRequest.details.computer', 'details.computer'])
+            $borrowerName = Auth::user()->ho_ten;
+            $requests = ReturnRequest::query()
+                ->whereHas('loanRequest', function ($query) use ($borrowerName) {
+                    $query->where('nguoi_muon', $borrowerName);
+                })
+                ->with(['loanRequest.details.computer', 'details.computer'])
                 ->orderBy('created_at', 'desc')
                 ->paginate(15);
             $requests->getCollection()->transform(function ($item) {
@@ -46,8 +49,6 @@ class ReturnRequestController extends Controller
     public function store(ReturnRequestRequest $request)
     {
         try {
-            $teacher = Auth::user()->teacher;
-
             $data = $request->validated();
             
             DB::beginTransaction();
@@ -68,7 +69,6 @@ class ReturnRequestController extends Controller
             }
 
             $data['ma_phieu_tra'] = $this->generateReturnCode();
-            $data['ma_giang_vien'] = $teacher->id;
             $data['trang_thai'] = ReturnRequestStatus::PENDING->value;
 
             $returnRequest = ReturnRequest::create($data);

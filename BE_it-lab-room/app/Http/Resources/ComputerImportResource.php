@@ -42,6 +42,13 @@ class ComputerImportResource extends JsonResource
                                 'ssd' => $detail->computer->ssd,
                                 'trang_thai' => $detail->computer->trang_thai,
                                 'ghi_chu' => $detail->computer->ghi_chu,
+                                'phong' => $detail->computer->relationLoaded('room') && $detail->computer->room
+                                    ? [
+                                        'id' => $detail->computer->room->id,
+                                        'ma_phong' => $detail->computer->room->ma_phong,
+                                        'ten_phong' => $detail->computer->room->ten_phong,
+                                    ]
+                                    : null,
                             ]
                             : null,
                     ];

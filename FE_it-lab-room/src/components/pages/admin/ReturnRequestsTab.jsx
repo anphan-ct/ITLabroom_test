@@ -22,7 +22,10 @@ function ReturnConfirmationModal({ request, onClose, onSubmit }) {
   const [notes, setNotes] = useState({});
   
   const loanDetails = request.loan_request?.details || [];
-  const borrowedComputers = loanDetails.filter(detail => detail.computer?.trang_thai === 'borrowed').map(d => d.computer);
+  const borrowedComputers = loanDetails
+    .filter(detail => detail.trang_thai_tra !== "Đã trả")
+    .map(d => d.computer)
+    .filter(Boolean);
   
   const requiredCount = request.so_luong;
   const [selectedIds, setSelectedIds] = useState([]);
@@ -210,7 +213,7 @@ export default function ReturnRequestsTab() {
       ...req,
       code: req.ma_phieu_tra,
       loanCode: req.ma_phieu_muon || "N/A",
-      teacher: req.ten_giang_vien || "N/A",
+      teacher: req.nguoi_muon || req.ten_giang_vien || "N/A",
       returnedAt: new Date(req.thoi_gian_tra).toLocaleString("vi-VN"),
       quantity: req.so_luong,
       note: req.ghi_chu,

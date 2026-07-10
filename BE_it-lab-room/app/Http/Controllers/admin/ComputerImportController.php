@@ -8,6 +8,7 @@ use App\Http\Resources\ComputerImportResource;
 use App\Models\Computer;
 use App\Models\ComputerImport;
 use App\Models\ComputerImportDetail;
+use App\Models\Room;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -23,6 +24,7 @@ class ComputerImportController extends Controller
                 ->with([
                     'details:id,ma_phieu_nhap,ma_may_tinh,ghi_chu',
                     'details.computer:id,ma_phong,ma_may,ten_may,vi_tri,ma_qr,bo_xu_ly,ram,card_do_hoa,bo_mach_chu,man_hinh,ban_phim,chuot,hdd,ssd,trang_thai,ghi_chu',
+                    'details.computer.room:id,ma_phong,ten_phong',
                 ])
                 ->latest('id')
                 ->get();
@@ -57,11 +59,22 @@ class ComputerImportController extends Controller
                     'ghi_chu' => $data['ghi_chu'] ?? null,
                 ]);
 
+                $phongMay = Room::query()
+                    ->lockForUpdate()
+                    ->findOrFail($data['ma_phong']);
+
+                $tenPhong = trim($phongMay->ten_phong);
+                $tenPhongPattern = preg_quote($tenPhong, '/');
                 $soTenMayLonNhatTrongPhong = Computer::query()
-                    ->where('ma_phong', $data['ma_phong'])
+                    ->where('ma_phong', $phongMay->id)
                     ->pluck('ten_may')
-                    ->map(function ($tenMay) {
-                        return (int) str_replace('Máy ', '', $tenMay);
+                    ->map(function ($tenMay) use ($tenPhongPattern) {
+                        // Lấy số cuối trong tên máy theo định dạng tên phòng + số máy, ví dụ F7.1-01.
+                        if (preg_match('/^'.$tenPhongPattern.'-(\d+)$/u', $tenMay, $matches)) {
+                            return (int) $matches[1];
+                        }
+
+                        return 0;
                     })
                     ->max() ?? 0;
 
@@ -70,7 +83,7 @@ class ComputerImportController extends Controller
                 for ($i = 1; $i <= (int) $data['so_luong']; $i++) {
                     $soThuTuMay = str_pad((string) $i, 3, '0', STR_PAD_LEFT);
                     $maMay = 'PC-'.$maPhieuNhapNumber.'-'.$soThuTuMay;
-                    $tenMay = 'Máy '.($soTenMayLonNhatTrongPhong + $i);
+                    $tenMay = $tenPhong.'-'.str_pad((string) ($soTenMayLonNhatTrongPhong + $i), 2, '0', STR_PAD_LEFT);
 
                     if (Computer::where('ma_may', $maMay)->exists()) {
                         throw ValidationException::withMessages([
@@ -90,7 +103,7 @@ class ComputerImportController extends Controller
                     }
 
                     $mayTinh = Computer::create([
-                        'ma_phong' => $data['ma_phong'],
+                        'ma_phong' => $phongMay->id,
                         'ma_may' => $maMay,
                         'ten_may' => $tenMay,
                         'ma_qr' => $this->generateUniqueQrCode($maMay),
@@ -114,7 +127,7 @@ class ComputerImportController extends Controller
                     ]);
                 }
 
-                return $phieuNhap->load(['details.computer']);
+                return $phieuNhap->load(['details.computer.room']);
             });
 
             return response()->json([
@@ -200,6 +213,7 @@ class ComputerImportController extends Controller
             $computerImport->load([
                 'details:id,ma_phieu_nhap,ma_may_tinh,ghi_chu',
                 'details.computer:id,ma_phong,ma_may,ten_may,vi_tri,ma_qr,bo_xu_ly,ram,card_do_hoa,bo_mach_chu,man_hinh,ban_phim,chuot,hdd,ssd,trang_thai,ghi_chu',
+                'details.computer.room:id,ma_phong,ten_phong',
             ]);
 
             return response()->json([

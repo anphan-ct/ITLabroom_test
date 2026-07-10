@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
+  AlertTriangle,
   CheckCircle2,
   ClipboardCheck,
   Clock3,
@@ -25,6 +26,7 @@ import {
   getTeacherScheduleAttendanceFromApi,
   updateTeacherAttendanceStatusFromApi,
 } from "../../../services/attendance.service";
+import { createIncidentReport } from "../../../services/incidentReport.service";
 
 const statusLabels = {
   present: "Có mặt",
@@ -76,6 +78,7 @@ export default function TeacherScheduleAttendancePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [checkingInStudentId, setCheckingInStudentId] = useState(null);
+  const [reportingComputerId, setReportingComputerId] = useState(null);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -203,6 +206,33 @@ export default function TeacherScheduleAttendancePage() {
       setError(apiError?.payload?.message || apiError.message || "Không thể điểm danh sinh viên.");
     } finally {
       setCheckingInStudentId(null);
+    }
+  };
+
+  const handleReportBrokenComputer = async () => {
+    if (!selectedComputer) {
+      setError("Vui lòng chọn máy tính cần báo hỏng.");
+      return;
+    }
+
+    setReportingComputerId(selectedComputer.id);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      await createIncidentReport("teacher", {
+        ma_may_tinh: Number(selectedComputer.id),
+        ma_thiet_bi: null,
+        loai_su_co: "phan_cung",
+        tieu_de: `Báo hỏng máy ${selectedComputer.ma_may || selectedComputer.ten_may || ""}`.trim(),
+        mo_ta: `Giảng viên báo hỏng khi chọn máy điểm danh cho sinh viên ${selectedStudent?.fullName || "-"}.`,
+        muc_do: "cao",
+      });
+      setSuccessMessage(`Đã gửi báo hỏng cho máy ${selectedComputer.ma_may || selectedComputer.ten_may}.`);
+    } catch (apiError) {
+      setError(apiError?.payload?.message || apiError.message || "Không thể gửi báo hỏng máy tính.");
+    } finally {
+      setReportingComputerId(null);
     }
   };
 
@@ -546,6 +576,18 @@ export default function TeacherScheduleAttendancePage() {
                         );
                       })}
                     </div>
+                  ) : null}
+
+                  {selectedComputer ? (
+                    <button
+                      type="button"
+                      onClick={handleReportBrokenComputer}
+                      disabled={reportingComputerId === selectedComputer.id}
+                      className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                      <AlertTriangle size={16} />
+                      {reportingComputerId === selectedComputer.id ? "Đang báo hỏng..." : "Báo hỏng máy"}
+                    </button>
                   ) : null}
 
                   <button

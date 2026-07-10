@@ -43,14 +43,22 @@ class ReturnRequestConfirmRequest extends FormRequest
                 $validator->errors()->add('machine_conditions', "Số lượng máy nhập tình trạng (" . count($conditions) . ") không khớp với yêu cầu trả ({$returnRequest->so_luong}).");
             }
 
-            // Kiểm tra mỗi máy có nằm trong phiếu mượn gốc không
-            $loanRequestId = $returnRequest->ma_phieu_muon;
-            $borrowedComputerIds = LoanRequestDetail::where('ma_phieu_muon', $loanRequestId)->pluck('ma_may_tinh')->toArray();
-
             $providedComputerIds = array_column($conditions, 'ma_may_tinh');
+            if (count($providedComputerIds) !== count(array_unique($providedComputerIds))) {
+                $validator->errors()->add('machine_conditions', 'Danh sách máy trả không được trùng lặp.');
+                return;
+            }
+
+            // Kiểm tra mỗi máy có nằm trong phiếu mượn gốc và chưa được trả không.
+            $loanRequestId = $returnRequest->ma_phieu_muon;
+            $borrowedComputerIds = LoanRequestDetail::where('ma_phieu_muon', $loanRequestId)
+                ->where('trang_thai_tra', '!=', 'Đã trả')
+                ->pluck('ma_may_tinh')
+                ->toArray();
+
             foreach ($providedComputerIds as $id) {
                 if (!in_array($id, $borrowedComputerIds)) {
-                    $validator->errors()->add('machine_conditions', "Máy tính ID {$id} không nằm trong phiếu mượn gốc.");
+                    $validator->errors()->add('machine_conditions', "Máy tính ID {$id} không nằm trong phiếu mượn gốc hoặc đã được trả.");
                 }
             }
         });

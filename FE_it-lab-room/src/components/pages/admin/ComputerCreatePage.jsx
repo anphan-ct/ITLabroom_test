@@ -163,8 +163,8 @@ export default function ComputerCreatePage() {
   useEffect(() => {
     let isMounted = true;
     const requests = isEditing
-      ? [getRoomsFromApi(), getComputerFromApi(computerId)]
-      : [getRoomsFromApi()];
+      ? [getRoomsFromApi({ includeStorage: true }), getComputerFromApi(computerId)]
+      : [getRoomsFromApi({ includeStorage: true })];
 
     Promise.all(requests)
       .then(([roomsResponse, computerResponse]) => {

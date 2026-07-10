@@ -15,6 +15,7 @@ class LoanRequestDetail extends Model
         'ma_phieu_muon',
         'ma_may_tinh',
         'tinh_trang_khi_muon',
+        'trang_thai_tra',
         'ghi_chu',
     ];
 

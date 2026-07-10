@@ -17,9 +17,9 @@ class LoanRequestController extends Controller
     public function index()
     {
         try {
-            $teacherId = Auth::user()->teacher->id;
-            $requests = LoanRequest::where('ma_giang_vien', $teacherId)
-                ->with(['teacher.user', 'department', 'details.computer'])
+            $borrowerName = Auth::user()->ho_ten;
+            $requests = LoanRequest::where('nguoi_muon', $borrowerName)
+                ->with(['department', 'details.computer'])
                 ->orderBy('created_at', 'desc')
                 ->paginate(15);
             $requests->getCollection()->transform(function ($item) {
@@ -49,7 +49,7 @@ class LoanRequestController extends Controller
 
             $data = $request->validated();
             $data['ma_phieu_muon'] = $this->generateLoanCode();
-            $data['ma_giang_vien'] = $teacher->id;
+            $data['nguoi_muon'] = Auth::user()->ho_ten;
             $data['ma_phong_ban'] = $teacher->ma_phong_ban;
             $data['trang_thai'] = LoanRequestStatus::PENDING->value;
 

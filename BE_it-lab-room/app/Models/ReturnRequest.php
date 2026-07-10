@@ -15,7 +15,6 @@ class ReturnRequest extends Model
     protected $fillable = [
         'ma_phieu_tra',
         'ma_phieu_muon',
-        'ma_giang_vien',
         'thoi_gian_tra',
         'so_luong',
         'trang_thai',
@@ -30,11 +29,6 @@ class ReturnRequest extends Model
     public function loanRequest(): BelongsTo
     {
         return $this->belongsTo(LoanRequest::class, 'ma_phieu_muon');
-    }
-
-    public function teacher(): BelongsTo
-    {
-        return $this->belongsTo(Teacher::class, 'ma_giang_vien');
     }
 
     public function details(): HasMany

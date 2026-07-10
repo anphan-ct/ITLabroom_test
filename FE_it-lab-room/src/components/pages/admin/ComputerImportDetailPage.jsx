@@ -21,7 +21,7 @@ function mapImportDetails(importReceipt, rooms) {
       id: detail.id,
       importCode: importReceipt.ma_phieu_nhap,
       computerCode: computer.ma_may || "",
-      roomCode: getRoomCode(rooms, computer.ma_phong),
+      roomCode: computer.phong?.ma_phong || getRoomCode(rooms, computer.ma_phong),
       cpu: computer.bo_xu_ly || "",
       ram: computer.ram || "",
       gpu: computer.card_do_hoa || "",

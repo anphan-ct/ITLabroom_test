@@ -12,7 +12,8 @@ class LoanRequestResource extends JsonResource
         return [
             'id'              => $this->id,
             'ma_phieu_muon'   => $this->ma_phieu_muon,
-            'ten_giang_vien'  => $this->teacher?->user?->ho_ten,
+            'nguoi_muon'      => $this->nguoi_muon,
+            'ten_giang_vien'  => $this->nguoi_muon,
             'ma_phong_ban'    => $this->department?->ten_phong_ban,
             'ngay_muon'       => $this->ngay_muon,
             'so_luong'        => $this->so_luong,
@@ -25,6 +26,7 @@ class LoanRequestResource extends JsonResource
                 'ma_may'               => $d->computer?->ma_may,
                 'ten_may'              => $d->computer?->ten_may,
                 'tinh_trang_khi_muon'  => $d->tinh_trang_khi_muon,
+                'trang_thai_tra'       => $d->trang_thai_tra,
                 'ghi_chu'              => $d->ghi_chu,
             ])),
         ];
