@@ -81,7 +81,7 @@ export default function ComputerTransfersPage() {
   useEffect(() => {
     let isMounted = true;
 
-    Promise.all([getComputersFromApi(), getRoomsFromApi(), getComputerTransfers()])
+    Promise.all([getComputersFromApi(), getRoomsFromApi({ includeStorage: true }), getComputerTransfers()])
       .then(([computersRes, roomsRes, transfersRes]) => {
         if (!isMounted) return;
 
@@ -290,8 +290,8 @@ export default function ComputerTransfersPage() {
                       <label
                         key={computer.id}
                         className={`flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${form.may_tinh_ids.includes(computer.id)
-                            ? "bg-blue-50 text-blue-800 border border-blue-200"
-                            : "hover:bg-white text-slate-700 border border-transparent"
+                          ? "bg-blue-50 text-blue-800 border border-blue-200"
+                          : "hover:bg-white text-slate-700 border border-transparent"
                           }`}
                       >
                         <input

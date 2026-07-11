@@ -9,6 +9,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use App\Enums\LoanRequestStatus;
+
 class ReturnRequestRequest extends FormRequest
 {
     public function authorize(): bool
@@ -32,8 +33,8 @@ class ReturnRequestRequest extends FormRequest
             $loanRequest = LoanRequest::find($this->input('ma_phieu_muon'));
             if (!$loanRequest) return;
 
-            if ($loanRequest->trang_thai !== LoanRequestStatus::APPROVED->value) {
-                $validator->errors()->add('ma_phieu_muon', 'Chỉ có thể tạo phiếu trả cho phiếu mượn đã được duyệt.');
+            if (!$loanRequest->details()->exists()) {
+                $validator->errors()->add('ma_phieu_muon', 'Chỉ có thể tạo phiếu trả cho phiếu mượn đã được cấp máy.');
                 return;
             }
             $remaining = $loanRequest->so_luong_con_lai;

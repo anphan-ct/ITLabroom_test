@@ -20,6 +20,7 @@ class LoanRequestResource extends JsonResource
             'so_luong_con_lai'=> $this->so_luong_con_lai,
             'ly_do_muon'      => $this->ly_do_muon,
             'trang_thai'      => $this->trang_thai,
+            'trang_thai_hien_thi' => $this->trang_thai_hien_thi,
             'details'         => $this->whenLoaded('details', fn () => $this->details->map(fn ($d) => [
                 'id'                   => $d->id,
                 'ma_may_tinh'          => $d->ma_may_tinh,

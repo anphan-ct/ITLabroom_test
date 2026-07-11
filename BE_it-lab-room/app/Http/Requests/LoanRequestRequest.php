@@ -18,7 +18,9 @@ class LoanRequestRequest extends FormRequest
         return [
             'ngay_muon' => ['required', 'date'],
             'so_luong' => ['required', 'integer', 'min:1'],
-            'ly_do_muon' => ['required', 'string', 'max:1000'],
+            'ly_do_muon' => ['nullable', 'string', 'max:1000'],
+            'nguoi_muon' => ['required', 'string', 'max:255'],
+            'ma_phong_ban' => ['required', 'integer', 'exists:phong_ban,id'],
         ];
     }
 

@@ -33,6 +33,20 @@ class LoanRequest extends Model
     public function details() { return $this->hasMany(LoanRequestDetail::class, 'ma_phieu_muon'); }
     public function returnRequests() { return $this->hasMany(ReturnRequest::class, 'ma_phieu_muon'); }
 
+    public function getTrangThaiHienThiAttribute()
+    {
+        if ($this->relationLoaded('details')) {
+            if ($this->details->isEmpty()) return 'Chưa chuyển máy';
+            if ($this->details->where('trang_thai_tra', '!=', 'Đã trả')->isNotEmpty()) return 'Chưa trả máy';
+            return 'Đã trả máy';
+        }
+
+        $details = $this->details()->select('trang_thai_tra')->get();
+        if ($details->isEmpty()) return 'Chưa chuyển máy';
+        if ($details->where('trang_thai_tra', '!=', 'Đã trả')->isNotEmpty()) return 'Chưa trả máy';
+        return 'Đã trả máy';
+    }
+
     public function getSoLuongConLaiAttribute()
     {
         if ($this->relationLoaded('details')) {

@@ -10,8 +10,8 @@ enum ReturnRequestStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::PENDING => 'Chờ xác nhận',
-            self::CONFIRMED => 'Đã xác nhận',
+            self::PENDING => 'Chưa trả máy',
+            self::CONFIRMED => 'Đã trả máy',
         };
     }
 }

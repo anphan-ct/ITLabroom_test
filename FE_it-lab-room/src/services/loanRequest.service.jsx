@@ -18,13 +18,8 @@ export const loanRequestService = {
       },
     });
   },
-  getTeacherLoanRequests: (page = 1) => {
-    return fetcher(`${CONST_APIS.LOAN_REQUESTS.TEACHER_INDEX}?page=${page}`, {
-      method: CONST_METHODS.GET,
-    });
-  },
-  createTeacherLoanRequest: (data) => {
-    return fetcher(CONST_APIS.LOAN_REQUESTS.TEACHER_STORE, {
+  createAdminLoanRequest: (data) => {
+    return fetcher(CONST_APIS.LOAN_REQUESTS.ADMIN_STORE, {
       method: CONST_METHODS.POST,
       body: data,
     });

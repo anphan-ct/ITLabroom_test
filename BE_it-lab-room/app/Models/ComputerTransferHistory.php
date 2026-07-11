@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ComputerTransferHistory extends Model
 {
@@ -13,7 +14,6 @@ class ComputerTransferHistory extends Model
     protected $table = 'lich_su_dieu_chuyen_may';
 
     protected $fillable = [
-        'may_tinh_ids',
         'ma_phong_cu',
         'ma_phong_moi',
         'ma_nguoi_dieu_chuyen',
@@ -23,14 +23,13 @@ class ComputerTransferHistory extends Model
     ];
 
     protected $casts = [
-        'may_tinh_ids' => 'array',
         'thoi_gian_dieu_chuyen' => 'datetime',
     ];
 
-    // Quan hệ: máy tính được điều chuyển
-    public function computers()
+    // Quan hệ: chi tiết điều chuyển máy
+    public function details(): HasMany
     {
-        return Computer::whereIn('id', $this->may_tinh_ids ?? [])->get();
+        return $this->hasMany(ComputerTransferDetail::class, 'ma_lich_su_dieu_chuyen');
     }
 
     // Quan hệ: phòng cũ (trước khi điều chuyển)

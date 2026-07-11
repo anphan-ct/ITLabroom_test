@@ -17,13 +17,8 @@ export const returnRequestService = {
       },
     });
   },
-  getTeacherReturnRequests: (page = 1) => {
-    return fetcher(`${CONST_APIS.RETURN_REQUESTS.TEACHER_INDEX}?page=${page}`, {
-      method: CONST_METHODS.GET,
-    });
-  },
-  createTeacherReturnRequest: (data) => {
-    return fetcher(CONST_APIS.RETURN_REQUESTS.TEACHER_STORE, {
+  createAdminReturnRequest: (data) => {
+    return fetcher(CONST_APIS.RETURN_REQUESTS.ADMIN_STORE, {
       method: CONST_METHODS.POST,
       body: data,
     });

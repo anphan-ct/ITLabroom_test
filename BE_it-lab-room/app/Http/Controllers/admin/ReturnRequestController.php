@@ -12,6 +12,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 use App\Http\Resources\ReturnRequestResource;
+use App\Http\Requests\ReturnRequestRequest;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class ReturnRequestController extends Controller
 {
@@ -45,6 +48,65 @@ class ReturnRequestController extends Controller
                 'data' => null
             ], 500);
         }
+    }
+
+    public function store(ReturnRequestRequest $request)
+    {
+        try {
+            $data = $request->validated();
+            
+            DB::beginTransaction();
+            
+            $loanRequest = \App\Models\LoanRequest::where('id', $data['ma_phieu_muon'])->lockForUpdate()->first();
+            
+            if (!$loanRequest || $data['so_luong'] > $loanRequest->so_luong_con_lai) {
+                DB::rollBack();
+                $remaining = $loanRequest ? $loanRequest->so_luong_con_lai : 0;
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Dữ liệu không hợp lệ',
+                    'error_code' => 422,
+                    'data' => [
+                        'so_luong' => ["Số lượng trả vượt quá số máy chưa trả hoặc đang chờ duyệt ({$remaining} máy)."]
+                    ]
+                ], 422);
+            }
+
+            $data['ma_phieu_tra'] = $this->generateReturnCode();
+            $data['trang_thai'] = ReturnRequestStatus::PENDING->value;
+
+            $returnRequest = ReturnRequest::create($data);
+            
+            DB::commit();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Tạo phiếu trả thành công',
+                'error_code' => 0,
+                'data' => $returnRequest
+            ], 201);
+        } catch (Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => false,
+                'message' => 'Lỗi hệ thống: ' . $e->getMessage(),
+                'error_code' => 500,
+                'data' => null
+            ], 500);
+        }
+    }
+
+    private function generateReturnCode(): string
+    {
+        for ($attempt = 1; $attempt <= 50; $attempt++) {
+            $code = 'PT-' . strtoupper(Str::random(6));
+            if (! ReturnRequest::where('ma_phieu_tra', $code)->exists()) {
+                return $code;
+            }
+        }
+        throw ValidationException::withMessages([
+            'ma_phieu_tra' => ['Không thể tạo mã phiếu trả, vui lòng thử lại.'],
+        ]);
     }
 
     public function confirm(ReturnRequestConfirmRequest $request, ReturnRequest $returnRequest)

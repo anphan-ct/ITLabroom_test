@@ -1,11 +1,15 @@
 import { useMemo, useState, useEffect } from "react";
-import { CheckCircle, Search, XCircle, ListChecks } from "lucide-react";
+import { CheckCircle, Search, XCircle, ListChecks, Plus } from "lucide-react";
 import DataTable from "../../common/DataTable";
 import SectionCard from "../../common/SectionCard";
 import ComputerConditionListModal from "../../common/ComputerConditionListModal";
 import { loanRequestService } from "../../../services/loanRequest.service";
 import { getComputersFromApi } from "../../../services/computer.service";
 import { getRoomsFromApi } from "../../../services/room.service";
+import { fetcher } from "../../../helpers/fetcher.helper";
+import { CONST_APIS } from "../../../constants/apis.constant";
+import { CONST_METHODS } from "../../../constants/methods.constant";
+import { Field, SelectInput, TextInput } from "./adminFormControls";
 
 const STATUS_MAP = {
   pending: { label: "Chờ duyệt", color: "text-amber-600 bg-amber-50" },
@@ -43,7 +47,6 @@ function AllocationModal({ request, rooms, onClose, onSubmit }) {
           setComputers(res.data || []);
         }
       } catch (err) {
-        // ignore for now
       } finally {
         setIsLoadingComputers(false);
       }
@@ -210,27 +213,43 @@ function AllocationModal({ request, rooms, onClose, onSubmit }) {
 export default function LoanRequestsTab() {
   const [requests, setRequests] = useState([]);
   const [rooms, setRooms] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [allocatingRequest, setAllocatingRequest] = useState(null);
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");// trạng thái lọc
+  const [statusFilter, setStatusFilter] = useState("all");
   const [viewingRequest, setViewingRequest] = useState(null);
+
+  const [form, setForm] = useState({
+    borrowerName: "",
+    departmentId: "",
+    borrowedAt: "",
+    quantity: "1",
+    purpose: ""
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
 
   const fetchData = async () => {
     try {
       setIsLoading(true);
       setPageError("");
-      const [reqRes, roomRes] = await Promise.all([
+      const [reqRes, roomRes, deptRes] = await Promise.all([
         loanRequestService.getAdminLoanRequests(statusFilter, 1),
-        getRoomsFromApi({ includeStorage: true })
+        getRoomsFromApi({ includeStorage: true }),
+        fetcher(CONST_APIS.DEPARTMENTS.INDEX, { method: CONST_METHODS.GET })
       ]);
       if (reqRes.status) {
         setRequests(reqRes.data?.data || []);
       }
       if (roomRes.status) {
         setRooms(roomRes.data || []);
+      }
+      if (deptRes.status) {
+        setDepartments(deptRes.data || []);
       }
     } catch (error) {
       setPageError("Lỗi khi tải dữ liệu.");
@@ -248,11 +267,40 @@ export default function LoanRequestsTab() {
       setPageError("");
       setPageSuccess("");
       await loanRequestService.approveLoanRequest(requestId, action, computerIds, machineConditions);
-      setPageSuccess(action === "approve" ? "Đã duyệt phiếu thành công!" : "Đã từ chối phiếu mượn.");
+      setPageSuccess(action === "approve" ? "Đã cấp phát máy thành công!" : "Đã từ chối phiếu mượn.");
       setAllocatingRequest(null);
-      fetchData(); // reload
+      fetchData();
     } catch (error) {
       setPageError(error.message || "Đã xảy ra lỗi.");
+    }
+  };
+
+  const submitForm = async (event) => {
+    event.preventDefault();
+    setFormError("");
+    setFormSuccess("");
+
+    if (!form.borrowerName.trim() || !form.departmentId || !form.borrowedAt || !form.quantity) {
+      setFormError("Vui lòng điền đủ thông tin phiếu mượn.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await loanRequestService.createAdminLoanRequest({
+        nguoi_muon: form.borrowerName.trim(),
+        ma_phong_ban: Number(form.departmentId),
+        ngay_muon: form.borrowedAt.replace("T", " "),
+        so_luong: Number(form.quantity),
+        ly_do_muon: form.purpose.trim()
+      });
+      setFormSuccess("Tạo phiếu mượn thành công!");
+      setForm({ borrowerName: "", departmentId: "", borrowedAt: "", quantity: "1", purpose: "" });
+      fetchData();
+    } catch (error) {
+      setFormError(error.message || "Lỗi tạo phiếu.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -262,8 +310,8 @@ export default function LoanRequestsTab() {
     return requests.map(req => ({
       ...req,
       code: req.ma_phieu_muon,
-      teacher: req.ten_giang_vien || "N/A",
-      department: req.ma_phong_ban || "N/A",
+      teacher: req.nguoi_muon || req.ten_giang_vien || "N/A",
+      department: req.department?.department_name || req.ma_phong_ban || "N/A",
       quantity: req.so_luong,
       borrowedAt: new Date(req.ngay_muon).toLocaleString('vi-VN'),
       reason: req.ly_do_muon,
@@ -278,127 +326,159 @@ export default function LoanRequestsTab() {
   }, [requests, searchKeyword]);
 
   return (
-    <div className="space-y-6">
-      {allocatingRequest && (
-        <AllocationModal
-          request={allocatingRequest}
-          rooms={rooms}
-          onClose={() => setAllocatingRequest(null)}
-          onSubmit={handleAction}
-        />
-      )}
+    <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+      <SectionCard title="Tạo phiếu mượn">
+        <form onSubmit={submitForm} className="grid gap-4">
+          <Field label="Người mượn">
+            <TextInput value={form.borrowerName} onChange={(val) => setForm({...form, borrowerName: val})} placeholder="Tên người mượn..." />
+          </Field>
+          <Field label="Phòng ban">
+            <SelectInput value={form.departmentId} onChange={(val) => setForm({...form, departmentId: val})}>
+              <option value="">Chọn phòng ban</option>
+              {departments.map((dep) => (
+                <option key={dep.id} value={dep.id}>{dep.department_name}</option>
+              ))}
+            </SelectInput>
+          </Field>
+          <Field label="Ngày mượn">
+            <TextInput type="datetime-local" value={form.borrowedAt} onChange={(val) => setForm({...form, borrowedAt: val})} />
+          </Field>
+          <Field label="Số lượng">
+            <TextInput type="number" min="1" value={form.quantity} onChange={(val) => setForm({...form, quantity: val})} />
+          </Field>
+          <Field label="Lý do mượn">
+            <TextInput value={form.purpose} onChange={(val) => setForm({...form, purpose: val})} placeholder="Mục đích..." />
+          </Field>
 
-      {pageError && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-          {pageError}
-        </div>
-      )}
-      {pageSuccess && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-          {pageSuccess}
-        </div>
-      )}
-
-      <SectionCard
-        title="Danh sách phiếu mượn chờ duyệt"
-        rightAction={
-          <div className="flex items-center gap-3">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-600 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="pending">Chờ duyệt</option>
-              <option value="approved">Đã duyệt</option>
-              <option value="rejected">Từ chối</option>
-              <option value="all">Tất cả</option>
-            </select>
-            <div className="relative">
-              <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="search"
-                value={searchKeyword}
-                onChange={(event) => setSearchKeyword(event.target.value)}
-                placeholder="Tìm phiếu mượn"
-                className="w-full min-w-[240px] rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 sm:w-72"
-              />
+          {formError && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+              {formError}
             </div>
-          </div>
-        }
-      >
-        <DataTable
-          isLoading={isLoading}
-          columns={[
-            { key: "code", title: "Mã phiếu" },
-            { key: "teacher", title: "Giảng viên" },
-            { key: "department", title: "Phòng ban" },
-            { key: "quantity", title: "Số lượng" },
-            { key: "borrowedAt", title: "Ngày mượn" },
-            { key: "reason", title: "Lý do mượn" },
-            {
-              key: "trang_thai",
-              title: "Trạng thái",
-              render: (_, item) => {
-                const style = STATUS_MAP[item.trang_thai] || { label: item.trang_thai, color: "text-slate-600 bg-slate-50" };
-                return (
-                  <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${style.color}`}>
-                    {style.label}
-                  </span>
-                );
-              }
-            },
-            {
-              key: "actions",
-              title: "Thao tác",
-              render: (_, request) => {
-                if (request.trang_thai === "pending") {
-                  return (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setAllocatingRequest(request)}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-200"
-                      >
-                        <CheckCircle size={14} />
-                        Duyệt
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (window.confirm("Từ chối phiếu mượn này?")) {
-                            handleAction(request.id, "reject");
-                          }
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700 transition hover:bg-rose-200"
-                      >
-                        <XCircle size={14} />
-                        Từ chối
-                      </button>
-                    </div>
-                  );
-                }
+          )}
+          {formSuccess && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+              {formSuccess}
+            </div>
+          )}
 
-                if (request.trang_thai === "approved") {
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => setViewingRequest(request)}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700 transition hover:bg-blue-200"
-                    >
-                      <ListChecks size={14} />
-                      Xem chi tiết máy
-                    </button>
-                  );
-                }
-
-                return <span className="text-slate-400 font-medium text-xs uppercase">—</span>;
-              },
-            },
-          ]}
-          data={filteredRequests}
-          emptyText="Chưa có phiếu mượn cần duyệt"
-        />
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="inline-flex w-fit items-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-70"
+          >
+            <Plus size={16} />
+            {isSubmitting ? "Đang xử lý..." : "Tạo phiếu mượn"}
+          </button>
+        </form>
       </SectionCard>
+
+      <div className="space-y-6">
+        {allocatingRequest && (
+          <AllocationModal
+            request={allocatingRequest}
+            rooms={rooms}
+            onClose={() => setAllocatingRequest(null)}
+            onSubmit={handleAction}
+          />
+        )}
+
+        {pageError && (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+            {pageError}
+          </div>
+        )}
+        {pageSuccess && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+            {pageSuccess}
+          </div>
+        )}
+
+        <SectionCard
+          title="Danh sách phiếu mượn"
+          rightAction={
+            <div className="flex items-center gap-3">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-600 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="pending">Chưa cấp máy</option>
+                <option value="approved">Đã cấp máy</option>
+                <option value="all">Tất cả</option>
+              </select>
+              <div className="relative">
+                <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="search"
+                  value={searchKeyword}
+                  onChange={(event) => setSearchKeyword(event.target.value)}
+                  placeholder="Tìm phiếu mượn"
+                  className="w-full min-w-[200px] rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 sm:w-64"
+                />
+              </div>
+            </div>
+          }
+        >
+          <DataTable
+            isLoading={isLoading}
+            columns={[
+              { key: "code", title: "Mã phiếu" },
+              { key: "teacher", title: "Người mượn" },
+              { key: "quantity", title: "Số lượng" },
+              { key: "borrowedAt", title: "Ngày mượn" },
+              {
+                key: "trang_thai",
+                title: "Trạng thái",
+                render: (_, item) => {
+                  const style = STATUS_MAP[item.trang_thai_hien_thi] || STATUS_MAP[item.trang_thai] || { label: item.trang_thai, color: "text-slate-600 bg-slate-50" };
+                  return (
+                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${style.color}`}>
+                      {style.label}
+                    </span>
+                  );
+                }
+              },
+              {
+                key: "actions",
+                title: "Thao tác",
+                render: (_, request) => {
+                  if (request.trang_thai_hien_thi === "pending" || (!request.details?.length && request.trang_thai !== "rejected")) {
+                    return (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAllocatingRequest(request)}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-200"
+                        >
+                          <CheckCircle size={14} />
+                          Cấp máy
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  if (request.trang_thai_hien_thi === "approved" || request.trang_thai_hien_thi === "completed") {
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setViewingRequest(request)}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700 transition hover:bg-blue-200"
+                      >
+                        <ListChecks size={14} />
+                        Chi tiết máy
+                      </button>
+                    );
+                  }
+
+                  return <span className="text-slate-400 font-medium text-xs uppercase">—</span>;
+                },
+              },
+            ]}
+            data={filteredRequests}
+            emptyText="Chưa có phiếu mượn"
+          />
+        </SectionCard>
+      </div>
 
       <ComputerConditionListModal
         open={!!viewingRequest}
