@@ -8,12 +8,8 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (! Schema::hasColumn('chi_tiet_phieu_muon_may', 'trang_thai_tra')) {
-            DB::statement(
-                "ALTER TABLE chi_tiet_phieu_muon_may
-                ADD trang_thai_tra VARCHAR(50) NOT NULL DEFAULT 'Chưa trả'
-                AFTER tinh_trang_khi_muon"
-            );
+        if (Schema::hasColumn('chi_tiet_phieu_muon_may', 'trang_thai_tra')) {
+            DB::statement('ALTER TABLE chi_tiet_phieu_muon_may DROP COLUMN trang_thai_tra');
         }
 
         if (Schema::hasColumn('phieu_tra_may', 'ma_giang_vien')) {
@@ -55,8 +51,6 @@ return new class extends Migration
             );
         }
 
-        if (Schema::hasColumn('chi_tiet_phieu_muon_may', 'trang_thai_tra')) {
-            DB::statement('ALTER TABLE chi_tiet_phieu_muon_may DROP COLUMN trang_thai_tra');
-        }
+        // Không khôi phục trang_thai_tra vì đã chuyển sang trạng thái động
     }
 };

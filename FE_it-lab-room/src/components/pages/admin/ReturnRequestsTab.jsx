@@ -25,7 +25,7 @@ function ReturnConfirmationModal({ request, onClose, onSubmit }) {
   
   const loanDetails = request.loanRequest?.details || [];
   const borrowedComputers = loanDetails
-    .filter(detail => detail.trang_thai_tra !== "Đã trả")
+    .filter(detail => !detail.da_tra)
     .map(d => d.computer)
     .filter(Boolean);
   

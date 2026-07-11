@@ -21,15 +21,18 @@ class LoanRequestResource extends JsonResource
             'ly_do_muon'      => $this->ly_do_muon,
             'trang_thai'      => $this->trang_thai,
             'trang_thai_hien_thi' => $this->trang_thai_hien_thi,
-            'details'         => $this->whenLoaded('details', fn () => $this->details->map(fn ($d) => [
-                'id'                   => $d->id,
-                'ma_may_tinh'          => $d->ma_may_tinh,
-                'ma_may'               => $d->computer?->ma_may,
-                'ten_may'              => $d->computer?->ten_may,
-                'tinh_trang_khi_muon'  => $d->tinh_trang_khi_muon,
-                'trang_thai_tra'       => $d->trang_thai_tra,
-                'ghi_chu'              => $d->ghi_chu,
-            ])),
+            'details'         => $this->whenLoaded('details', function () {
+                $returnedIds = $this->getReturnedComputerIds();
+                return $this->details->map(fn ($d) => [
+                    'id'                   => $d->id,
+                    'ma_may_tinh'          => $d->ma_may_tinh,
+                    'ma_may'               => $d->computer?->ma_may,
+                    'ten_may'              => $d->computer?->ten_may,
+                    'tinh_trang_khi_muon'  => $d->tinh_trang_khi_muon,
+                    'ghi_chu'              => $d->ghi_chu,
+                    'da_tra'               => $returnedIds->contains($d->ma_may_tinh),
+                ]);
+            }),
         ];
     }
 }

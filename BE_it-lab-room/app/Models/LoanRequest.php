@@ -33,53 +33,47 @@ class LoanRequest extends Model
     public function details() { return $this->hasMany(LoanRequestDetail::class, 'ma_phieu_muon'); }
     public function returnRequests() { return $this->hasMany(ReturnRequest::class, 'ma_phieu_muon'); }
 
+    public function getReturnedComputerIds()
+    {
+        return \App\Models\ReturnRequestDetail::whereIn('ma_phieu_tra', function ($q) {
+            $q->select('id')->from('phieu_tra_may')
+              ->where('ma_phieu_muon', $this->id)
+              ->where('trang_thai', \App\Enums\ReturnRequestStatus::CONFIRMED->value);
+        })->pluck('ma_may_tinh');
+    }
+
     public function getTrangThaiHienThiAttribute()
     {
-        if ($this->relationLoaded('details')) {
-            if ($this->details->isEmpty()) return 'Chưa chuyển máy';
-            if ($this->details->where('trang_thai_tra', '!=', 'Đã trả')->isNotEmpty()) return 'Chưa trả máy';
-            return 'Đã trả máy';
+        $loanComputerIds = $this->relationLoaded('details') 
+            ? $this->details->pluck('ma_may_tinh') 
+            : $this->details()->pluck('ma_may_tinh');
+
+        if ($loanComputerIds->isEmpty()) {
+            return 'Chưa chuyển máy';
         }
 
-        $details = $this->details()->select('trang_thai_tra')->get();
-        if ($details->isEmpty()) return 'Chưa chuyển máy';
-        if ($details->where('trang_thai_tra', '!=', 'Đã trả')->isNotEmpty()) return 'Chưa trả máy';
-        return 'Đã trả máy';
+        $returnedIds = $this->getReturnedComputerIds();
+        
+        if ($loanComputerIds->diff($returnedIds)->isEmpty()) {
+            return 'Đã trả máy';
+        }
+        
+        return 'Chưa trả máy';
     }
 
     public function getSoLuongConLaiAttribute()
     {
-        if ($this->relationLoaded('details')) {
-            $notReturned = $this->details
-                ->where('trang_thai_tra', '!=', 'Đã trả')
-                ->count();
+        $loanComputerIds = $this->relationLoaded('details') 
+            ? $this->details->pluck('ma_may_tinh') 
+            : $this->details()->pluck('ma_may_tinh');
 
-            $pendingReturns = $this->returnRequests()
-                ->where('trang_thai', \App\Enums\ReturnRequestStatus::PENDING->value)
-                ->sum('so_luong');
+        $returnedIds = $this->getReturnedComputerIds();
+        $notReturned = $loanComputerIds->diff($returnedIds)->count();
 
-            return max(0, $notReturned - $pendingReturns);
-        }
-
-        if (\Illuminate\Support\Facades\Schema::hasColumn('chi_tiet_phieu_muon_may', 'trang_thai_tra')) {
-            $notReturned = $this->details()
-                ->where('trang_thai_tra', '!=', 'Đã trả')
-                ->count();
-
-            $pendingReturns = $this->returnRequests()
-                ->where('trang_thai', \App\Enums\ReturnRequestStatus::PENDING->value)
-                ->sum('so_luong');
-
-            return max(0, $notReturned - $pendingReturns);
-        }
-
-        $totalReturned = $this->returnRequests()
-            ->whereIn('trang_thai', [
-                \App\Enums\ReturnRequestStatus::PENDING->value,
-                \App\Enums\ReturnRequestStatus::CONFIRMED->value
-            ])
+        $pendingReturns = $this->returnRequests()
+            ->where('trang_thai', \App\Enums\ReturnRequestStatus::PENDING->value)
             ->sum('so_luong');
-            
-        return max(0, $this->so_luong - $totalReturned);
+
+        return max(0, $notReturned - $pendingReturns);
     }
 }

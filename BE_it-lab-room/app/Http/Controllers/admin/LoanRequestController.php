@@ -139,7 +139,6 @@ class LoanRequestController extends Controller
                     'ma_phieu_muon' => $loanRequest->id,
                     'ma_may_tinh' => $computer->id,
                     'tinh_trang_khi_muon' => $tinhTrang,
-                    'trang_thai_tra' => 'Chưa trả',
                     'ghi_chu' => $ghiChu,
                 ]);
             }

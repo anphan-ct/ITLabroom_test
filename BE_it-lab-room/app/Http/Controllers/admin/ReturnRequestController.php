@@ -134,12 +134,7 @@ class ReturnRequestController extends Controller
                     'ma_may_tinh' => $computerId,
                     'tinh_trang_khi_tra' => $tinhTrang,
                     'ghi_chu' => $cond['ghi_chu'] ?? null,
-                ]);
-
-                // Đánh dấu máy trong chi tiết phiếu mượn đã được trả.
-                $returnRequest->loanRequest?->details()
-                    ->where('ma_may_tinh', $computerId)
-                    ->update(['trang_thai_tra' => 'Đã trả']);
+                ]); 
             }
 
             $returnRequest->update(['trang_thai' => ReturnRequestStatus::CONFIRMED->value]);
