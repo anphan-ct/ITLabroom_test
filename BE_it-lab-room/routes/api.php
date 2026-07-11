@@ -225,6 +225,7 @@ Route::middleware(['auth:sanctum', 'abilities:admin'])->group(function () {
     Route::prefix('admin/loan-requests')->group(function () {
         Route::get('/', [AdminLoanRequestController::class, 'index']);
         Route::post('/', [AdminLoanRequestController::class, 'store']);
+        Route::put('/{loanRequest}', [AdminLoanRequestController::class, 'update']);
         Route::patch('/{loanRequest}/assign-computers', [AdminLoanRequestController::class, 'assignComputers']);
     });
 
@@ -232,6 +233,7 @@ Route::middleware(['auth:sanctum', 'abilities:admin'])->group(function () {
     Route::prefix('admin/return-requests')->group(function () {
         Route::get('/', [AdminReturnRequestController::class, 'index']);
         Route::post('/', [AdminReturnRequestController::class, 'store']);
+        Route::put('/{returnRequest}', [AdminReturnRequestController::class, 'update']);
         Route::patch('/{returnRequest}/confirmation', [AdminReturnRequestController::class, 'confirm']);
     });
 });

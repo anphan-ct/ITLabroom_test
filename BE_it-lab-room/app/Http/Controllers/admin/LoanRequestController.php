@@ -78,6 +78,36 @@ class LoanRequestController extends Controller
         }
     }
 
+    public function update(LoanRequestRequest $request, LoanRequest $loanRequest)
+    {
+        try {
+            if ($loanRequest->details()->exists()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Phiếu mượn đã được cấp máy, không thể cập nhật.',
+                    'error_code' => 400,
+                    'data' => null
+                ], 400);
+            }
+
+            $loanRequest->update($request->validated());
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Cập nhật phiếu mượn thành công',
+                'error_code' => 0,
+                'data' => new LoanRequestResource($loanRequest)
+            ], 200);
+        } catch (Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Lỗi hệ thống: ' . $e->getMessage(),
+                'error_code' => 500,
+                'data' => null
+            ], 500);
+        }
+    }
+
     private function generateLoanCode(): string
     {
         for ($attempt = 1; $attempt <= 50; $attempt++) {

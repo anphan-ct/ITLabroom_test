@@ -23,4 +23,10 @@ export const returnRequestService = {
       body: data,
     });
   },
+  updateAdminReturnRequest: (id, data) => {
+    return fetcher(CONST_APIS.RETURN_REQUESTS.ADMIN_UPDATE(id), {
+      method: CONST_METHODS.PUT,
+      body: data,
+    });
+  },
 };

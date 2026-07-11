@@ -24,4 +24,10 @@ export const loanRequestService = {
       body: data,
     });
   },
+  updateAdminLoanRequest: (id, data) => {
+    return fetcher(CONST_APIS.LOAN_REQUESTS.ADMIN_UPDATE(id), {
+      method: CONST_METHODS.PUT,
+      body: data,
+    });
+  },
 };

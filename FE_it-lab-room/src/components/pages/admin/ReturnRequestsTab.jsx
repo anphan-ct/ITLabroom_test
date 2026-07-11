@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { CheckCircle, Search, Wrench, ListChecks, RotateCcw } from "lucide-react";
+import { CheckCircle, Search, Wrench, ListChecks, RotateCcw, Edit2 } from "lucide-react";
 import DataTable from "../../common/DataTable";
 import SectionCard from "../../common/SectionCard";
 import ComputerConditionListModal from "../../common/ComputerConditionListModal";
@@ -23,7 +23,7 @@ function ReturnConfirmationModal({ request, onClose, onSubmit }) {
   const [conditions, setConditions] = useState({});
   const [notes, setNotes] = useState({});
   
-  const loanDetails = request.loanRequest?.details || [];
+  const loanDetails = request.loan_request?.details || [];
   const borrowedComputers = loanDetails
     .filter(detail => !detail.da_tra)
     .map(d => d.computer)
@@ -166,12 +166,91 @@ function ReturnConfirmationModal({ request, onClose, onSubmit }) {
   );
 }
 
+function EditReturnRequestModal({ request, approvedLoans, onClose, onSubmit, isSubmitting }) {
+  const [form, setForm] = useState({ 
+    loanId: request.ma_phieu_muon || "", 
+    returnedAt: (request.thoi_gian_tra || "").slice(0, 16), 
+    quantity: request.so_luong || "1", 
+    note: request.ghi_chu || "" 
+  });
+  const [error, setError] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.loanId || !form.returnedAt || !form.quantity) {
+      setError("Vui lòng điền đầy đủ thông tin.");
+      return;
+    }
+    
+    onSubmit(request.id, {
+      ma_phieu_muon: Number(form.loanId),
+      thoi_gian_tra: form.returnedAt.replace("T", " "),
+      so_luong: Number(form.quantity),
+      ghi_chu: form.note.trim()
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <h3 className="mb-4 text-xl font-bold text-slate-800">
+          Cập nhật phiếu trả {request.code}
+        </h3>
+        
+        {error && (
+          <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="grid gap-4">
+          <Field label="Phiếu mượn">
+            <SelectInput value={form.loanId} onChange={(val) => setForm({ ...form, loanId: val })}>
+              <option value="">Chọn phiếu mượn</option>
+              {approvedLoans.map((loanReq) => {
+                const remaining = loanReq.so_luong_con_lai;
+                // Nếu đây là phiếu mượn gốc của phiếu trả này, cộng lại số lượng để hiển thị đúng "Còn lại"
+                const actualRemaining = loanReq.id === request.ma_phieu_muon ? remaining + request.so_luong : remaining;
+                return <option key={loanReq.id} value={loanReq.id}>{loanReq.ma_phieu_muon} (Còn: {actualRemaining} máy)</option>;
+              })}
+            </SelectInput>
+          </Field>
+          <Field label="Ngày trả">
+            <TextInput type="datetime-local" value={form.returnedAt} onChange={(val) => setForm({ ...form, returnedAt: val })} />
+          </Field>
+          <Field label="Số lượng trả">
+            <TextInput type="number" min="1" value={form.quantity} onChange={(val) => setForm({ ...form, quantity: val })} />
+          </Field>
+          <Field label="Ghi chú">
+            <TextInput value={form.note} onChange={(val) => setForm({ ...form, note: val })} placeholder="Ghi chú..." />
+          </Field>
+
+          <div className="mt-6 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="rounded-lg bg-slate-100 px-4 py-2 font-medium text-slate-700 hover:bg-slate-200">
+              Hủy
+            </button>
+            <button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isSubmitting ? "Đang xử lý..." : "Lưu thay đổi"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function ReturnRequestsTab() {
   const [receipts, setReceipts] = useState([]);
   const [approvedLoans, setApprovedLoans] = useState([]);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [confirmingRequest, setConfirmingRequest] = useState(null);
+  const [editingReceipt, setEditingReceipt] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -227,6 +306,22 @@ export default function ReturnRequestsTab() {
     }
   };
 
+  const handleUpdate = async (id, data) => {
+    try {
+      setPageError("");
+      setPageSuccess("");
+      setIsUpdating(true);
+      await returnRequestService.updateAdminReturnRequest(id, data);
+      setPageSuccess("Cập nhật phiếu trả thành công!");
+      setEditingReceipt(null);
+      fetchData();
+    } catch (error) {
+      setPageError(error.message || "Lỗi cập nhật phiếu.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const submitForm = async (event) => {
     event.preventDefault();
     setFormError("");
@@ -268,8 +363,8 @@ export default function ReturnRequestsTab() {
     return receipts.map(req => ({
       ...req,
       code: req.ma_phieu_tra,
-      loanCode: req.loanRequest?.ma_phieu_muon || req.ma_phieu_muon || "N/A",
-      teacher: req.loanRequest?.nguoi_muon || "N/A",
+      loanCode: req.loan_request?.ma_phieu_muon || req.ma_phieu_muon || "N/A",
+      teacher: req.loan_request?.nguoi_muon || "N/A",
       returnedAt: new Date(req.thoi_gian_tra).toLocaleString("vi-VN"),
       quantity: req.so_luong,
       note: req.ghi_chu,
@@ -337,6 +432,16 @@ export default function ReturnRequestsTab() {
             request={confirmingRequest}
             onClose={() => setConfirmingRequest(null)}
             onSubmit={handleAction}
+          />
+        )}
+
+        {editingReceipt && (
+          <EditReturnRequestModal
+            request={editingReceipt}
+            approvedLoans={approvedLoans}
+            onClose={() => setEditingReceipt(null)}
+            onSubmit={handleUpdate}
+            isSubmitting={isUpdating}
           />
         )}
 
@@ -411,6 +516,14 @@ export default function ReturnRequestsTab() {
                         >
                           <CheckCircle size={14} />
                           Xác nhận
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingReceipt(receipt)}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700 transition hover:bg-blue-200"
+                        >
+                          <Edit2 size={14} />
+                          Cập nhật
                         </button>
                       </div>
                     );

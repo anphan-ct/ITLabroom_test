@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { CheckCircle, Search, XCircle, ListChecks, Plus } from "lucide-react";
+import { CheckCircle, Search, XCircle, ListChecks, Plus, Edit2 } from "lucide-react";
 import DataTable from "../../common/DataTable";
 import SectionCard from "../../common/SectionCard";
 import ComputerConditionListModal from "../../common/ComputerConditionListModal";
@@ -210,6 +210,84 @@ function AllocationModal({ request, rooms, onClose, onSubmit }) {
   );
 }
 
+function EditLoanRequestModal({ request, departments, onClose, onSubmit, isSubmitting }) {
+  const [form, setForm] = useState({
+    borrowerName: request.nguoi_muon || request.ten_giang_vien || "",
+    departmentId: request.ma_phong_ban || "",
+    borrowedAt: (request.ngay_muon || "").slice(0, 16),
+    quantity: request.so_luong || "1",
+    purpose: request.ly_do_muon || ""
+  });
+  const [error, setError] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.borrowerName.trim() || !form.departmentId || !form.borrowedAt || !form.quantity) {
+      setError("Vui lòng điền đủ thông tin phiếu mượn.");
+      return;
+    }
+    onSubmit(request.id, {
+      nguoi_muon: form.borrowerName.trim(),
+      ma_phong_ban: Number(form.departmentId),
+      ngay_muon: form.borrowedAt.replace("T", " "),
+      so_luong: Number(form.quantity),
+      ly_do_muon: form.purpose.trim()
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <h3 className="mb-4 text-xl font-bold text-slate-800">
+          Cập nhật phiếu mượn {request.code}
+        </h3>
+        
+        {error && (
+          <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="grid gap-4">
+          <Field label="Người mượn">
+            <TextInput value={form.borrowerName} onChange={(val) => setForm({...form, borrowerName: val})} placeholder="Tên người mượn..." />
+          </Field>
+          <Field label="Phòng ban">
+            <SelectInput value={form.departmentId} onChange={(val) => setForm({...form, departmentId: val})}>
+              <option value="">Chọn phòng ban</option>
+              {departments.map((dep) => (
+                <option key={dep.id} value={dep.id}>{dep.department_name}</option>
+              ))}
+            </SelectInput>
+          </Field>
+          <Field label="Ngày mượn">
+            <TextInput type="datetime-local" value={form.borrowedAt} onChange={(val) => setForm({...form, borrowedAt: val})} />
+          </Field>
+          <Field label="Số lượng">
+            <TextInput type="number" min="1" value={form.quantity} onChange={(val) => setForm({...form, quantity: val})} />
+          </Field>
+          <Field label="Lý do mượn">
+            <TextInput value={form.purpose} onChange={(val) => setForm({...form, purpose: val})} placeholder="Mục đích..." />
+          </Field>
+
+          <div className="mt-6 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="rounded-lg bg-slate-100 px-4 py-2 font-medium text-slate-700 hover:bg-slate-200">
+              Hủy
+            </button>
+            <button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isSubmitting ? "Đang xử lý..." : "Lưu thay đổi"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function LoanRequestsTab() {
   const [requests, setRequests] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -217,6 +295,8 @@ export default function LoanRequestsTab() {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [allocatingRequest, setAllocatingRequest] = useState(null);
+  const [editingRequest, setEditingRequest] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -272,6 +352,22 @@ export default function LoanRequestsTab() {
       fetchData();
     } catch (error) {
       setPageError(error.message || "Đã xảy ra lỗi.");
+    }
+  };
+
+  const handleUpdate = async (id, data) => {
+    try {
+      setPageError("");
+      setPageSuccess("");
+      setIsUpdating(true);
+      await loanRequestService.updateAdminLoanRequest(id, data);
+      setPageSuccess("Cập nhật phiếu mượn thành công!");
+      setEditingRequest(null);
+      fetchData();
+    } catch (error) {
+      setPageError(error.message || "Lỗi cập nhật phiếu.");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -382,6 +478,16 @@ export default function LoanRequestsTab() {
           />
         )}
 
+        {editingRequest && (
+          <EditLoanRequestModal
+            request={editingRequest}
+            departments={departments}
+            onClose={() => setEditingRequest(null)}
+            onSubmit={handleUpdate}
+            isSubmitting={isUpdating}
+          />
+        )}
+
         {pageError && (
           <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
             {pageError}
@@ -453,11 +559,19 @@ export default function LoanRequestsTab() {
                           <CheckCircle size={14} />
                           Cấp máy
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingRequest(request)}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700 transition hover:bg-blue-200"
+                        >
+                          <Edit2 size={14} />
+                          Cập nhật
+                        </button>
                       </div>
                     );
                   }
 
-                  if (request.trang_thai_hien_thi === "approved" || request.trang_thai_hien_thi === "completed") {
+                  if (request.trang_thai_hien_thi === "Chưa trả máy" || request.trang_thai_hien_thi === "Đã trả máy") {
                     return (
                       <button
                         type="button"

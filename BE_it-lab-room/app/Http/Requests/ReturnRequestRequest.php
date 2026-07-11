@@ -38,6 +38,10 @@ class ReturnRequestRequest extends FormRequest
                 return;
             }
             $remaining = $loanRequest->so_luong_con_lai;
+            $returnRequest = $this->route('returnRequest');
+            if ($returnRequest && $returnRequest->ma_phieu_muon == $loanRequest->id) {
+                $remaining += $returnRequest->so_luong;
+            }
 
             if ($this->input('so_luong') > $remaining) {
                 $validator->errors()->add('so_luong', "Số lượng trả vượt quá số máy chưa trả hoặc đang chờ duyệt ({$remaining} máy).");
