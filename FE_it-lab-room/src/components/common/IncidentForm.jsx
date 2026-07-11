@@ -12,6 +12,10 @@ export default function IncidentForm({
   role = "student",
   initialRoomId = "",
   initialComputerCode = "",
+  initialTitle = "",
+  initialIncidentType = "",
+  initialSeverity = "",
+  initialDescription = "",
 }) {
   const [rooms, setRooms] = useState([]);
   const [selectedRoomId, setSelectedRoomId] = useState(initialRoomId);
@@ -23,10 +27,10 @@ export default function IncidentForm({
   const [submitting, setSubmitting] = useState(false);
 
   // Form fields
-  const [tieu_de, setTieuDe] = useState("");
-  const [loai_su_co, setLoaiSuCo] = useState("");
-  const [muc_do, setMucDo] = useState("");
-  const [mo_ta, setMoTa] = useState("");
+  const [tieu_de, setTieuDe] = useState(initialTitle);
+  const [loai_su_co, setLoaiSuCo] = useState(initialIncidentType);
+  const [muc_do, setMucDo] = useState(initialSeverity);
+  const [mo_ta, setMoTa] = useState(initialDescription);
 
   // Lấy danh sách phòng máy khi mount
   useEffect(() => {

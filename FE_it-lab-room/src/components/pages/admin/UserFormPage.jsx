@@ -1,7 +1,19 @@
 import { useEffect, useState } from "react";
-import * as XLSX from 'xlsx';
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Save, UploadCloud, FileSpreadsheet, FilePen, Loader2 } from "lucide-react";
+import * as XLSX from "xlsx";
+import {
+  Link,
+  Navigate,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
+import {
+  Save,
+  UploadCloud,
+  FileSpreadsheet,
+  FilePen,
+  Loader2,
+} from "lucide-react";
 import AppShell from "../../common/AppShell";
 import SectionCard from "../../common/SectionCard";
 import {
@@ -16,10 +28,67 @@ import {
 
 const genders = ["Nam", "Nữ"];
 
-/**
- * Khởi tạo form data trống với vai trò mặc định.
- */
-function getInitialFormData(roleId) {
+const roleAliasMap = {
+  admin: "admin",
+  "quản trị viên": "admin",
+  "quản trị viên hệ thống": "admin",
+
+  teacher: "teacher",
+  "giảng viên": "teacher",
+
+  student: "student",
+  "sinh viên": "student",
+
+  technician: "technician",
+  "kỹ thuật viên": "technician",
+};
+
+function normalizeRole(value) {
+  const normalizedValue = String(value || "")
+    .trim()
+    .toLowerCase();
+
+  return roleAliasMap[normalizedValue] || normalizedValue;
+}
+
+function getRoleName(role) {
+  return (
+    role?.ten_vai_tro ||
+    role?.role_name ||
+    role?.name ||
+    role?.title ||
+    ""
+  );
+}
+
+function getRoleLabel(role) {
+  return (
+    role?.mo_ta ||
+    role?.description ||
+    getRoleName(role)
+  );
+}
+
+function getRoleSlugById(roles, roleId) {
+  const selectedRole = roles.find(
+    (role) => Number(role.id) === Number(roleId)
+  );
+
+  return normalizeRole(getRoleName(selectedRole));
+}
+
+function getRoleIdBySlug(roles, roleSlug) {
+  const normalizedSlug = normalizeRole(roleSlug);
+
+  const selectedRole = roles.find(
+    (role) =>
+      normalizeRole(getRoleName(role)) === normalizedSlug
+  );
+
+  return selectedRole?.id || "";
+}
+
+function getInitialFormData(roleId = "") {
   return {
     ma_vai_tro: roleId,
     ho_ten: "",
@@ -28,87 +97,190 @@ function getInitialFormData(roleId) {
     so_dien_thoai: "",
     gioi_tinh: "",
     ngay_sinh: "",
-    // Trường riêng sinh viên
+
     ma_sinh_vien: "",
     ma_lop: "",
     nien_khoa: "",
-    // Trường riêng giảng viên
+
     ma_giang_vien: "",
     ma_phong_ban: "",
   };
 }
 
-export default function UserFormPage({ defaultRole = "Sinh viên" }) {
+export default function UserFormPage({
+  defaultRole = "student",
+}) {
   const navigate = useNavigate();
   const { userId } = useParams();
   const [searchParams] = useSearchParams();
+
   const isEditing = Boolean(userId);
+
   const [roles, setRoles] = useState([]);
+  const [loadingRoles, setLoadingRoles] = useState(true);
 
-  useEffect(() => {
-    getRolesFromApi().then((res) => {
-      if (res?.data) setRoles(res.data);
-    });
-  }, []);
+  const [formData, setFormData] = useState(
+    getInitialFormData()
+  );
 
-  // Xác định vai trò mặc định từ query param hoặc prop
-  const roleQueryMap = Object.fromEntries(roles.map((r) => [r.ten_vai_tro, r.id]));
-  const queryRole = searchParams.get("role");
-  const initialRoleId = roleQueryMap[queryRole] || roleQueryMap[defaultRole] || 2;
-
-  // State cho form
-  const [formData, setFormData] = useState(getInitialFormData(initialRoleId));
   const [fieldErrors, setFieldErrors] = useState({});
   const [generalError, setGeneralError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // State cho dữ liệu dropdown (fetch từ API)
   const [departments, setDepartments] = useState([]);
   const [classes, setClasses] = useState([]);
-  const [loadingDropdowns, setLoadingDropdowns] = useState(true);
+  const [loadingDropdowns, setLoadingDropdowns] =
+    useState(true);
 
-  // State cho fetch chi tiết user khi edit
-  const [loadingUser, setLoadingUser] = useState(isEditing);
-  const [userNotFound, setUserNotFound] = useState(false);
+  const [loadingUser, setLoadingUser] =
+    useState(isEditing);
 
-  // Đọc tham số 'tab' từ URL. Nếu là 'csv' thì mở tab nhập CSV, ngược lại mở tab thủ công
+  const [userNotFound, setUserNotFound] =
+    useState(false);
+
   const queryTab = searchParams.get("tab");
-  const initialTab = queryTab === "csv" ? "csv" : "manual";
+  const initialTab =
+    queryTab === "csv" ? "csv" : "manual";
 
-  // Tab nhập liệu: thủ công hoặc CSV
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeTab, setActiveTab] =
+    useState(initialTab);
 
-  // --- State riêng cho tab nhập CSV ---
   const [csvRows, setCsvRows] = useState([]);
   const [csvError, setCsvError] = useState("");
   const [toast, setToast] = useState(null);
 
-  const roleId = Number(formData.ma_vai_tro);
-  const isStudentRole = roleId === 2;
-  const isTeacherRole = roleId === 3;
-  const isAdminRole = roleId === 1;
-  const userCodeLabel = isTeacherRole ? "Mã giảng viên" : isStudentRole ? "Mã sinh viên" : "";
+  const currentRoleSlug = getRoleSlugById(
+    roles,
+    formData.ma_vai_tro
+  );
+
+  const isStudentRole =
+    currentRoleSlug === "student";
+
+  const isTeacherRole =
+    currentRoleSlug === "teacher";
+
+  const isAdminRole =
+    currentRoleSlug === "admin";
+
+  const isTechnicianRole =
+    currentRoleSlug === "technician";
+
+  const userCodeLabel = isTeacherRole
+    ? "Mã giảng viên"
+    : isStudentRole
+      ? "Mã sinh viên"
+      : "";
 
   const backPath = "/admin/users";
-  const pageTitle = isEditing ? "Sửa người dùng" : "Thêm người dùng";
+
+  const pageTitle = isEditing
+    ? "Sửa người dùng"
+    : "Thêm người dùng";
+
   const pageSubtitle = isEditing
     ? "Cập nhật thông tin tài khoản người dùng"
     : "Tạo tài khoản người dùng mới";
 
-  // Fetch danh sách phòng ban và lớp học từ API khi mount
+  useEffect(() => {
+    const fetchRoles = async () => {
+      setLoadingRoles(true);
+
+      try {
+        const response = await getRolesFromApi();
+
+        const roleData = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response?.data?.data)
+            ? response.data.data
+            : [];
+
+        setRoles(roleData);
+      } catch (error) {
+        console.error(
+          "Lỗi khi lấy danh sách vai trò:",
+          error
+        );
+
+        setRoles([]);
+        setGeneralError(
+          "Không thể tải danh sách vai trò."
+        );
+      } finally {
+        setLoadingRoles(false);
+      }
+    };
+
+    fetchRoles();
+  }, []);
+
+  useEffect(() => {
+    if (
+      isEditing ||
+      loadingRoles ||
+      roles.length === 0
+    ) {
+      return;
+    }
+
+    const roleFromQuery =
+      searchParams.get("role");
+
+    const nextRoleId =
+      getRoleIdBySlug(roles, roleFromQuery) ||
+      getRoleIdBySlug(roles, defaultRole) ||
+      getRoleIdBySlug(roles, "student") ||
+      roles[0]?.id ||
+      "";
+
+    setFormData((prev) => ({
+      ...prev,
+      ma_vai_tro: String(nextRoleId),
+    }));
+  }, [
+    defaultRole,
+    isEditing,
+    loadingRoles,
+    roles,
+    searchParams,
+  ]);
+
   useEffect(() => {
     const fetchDropdowns = async () => {
       setLoadingDropdowns(true);
-      try {
-        const [deptRes, classRes] = await Promise.all([
-          getDepartmentsFromApi(),
-          getClassesFromApi(),
-        ]);
 
-        if (deptRes.status) setDepartments(deptRes.data || []);
-        if (classRes.status) setClasses(classRes.data || []);
+      try {
+        const [departmentResponse, classResponse] =
+          await Promise.all([
+            getDepartmentsFromApi(),
+            getClassesFromApi(),
+          ]);
+
+        const departmentData = Array.isArray(
+          departmentResponse?.data
+        )
+          ? departmentResponse.data
+          : Array.isArray(
+                departmentResponse?.data?.data
+              )
+            ? departmentResponse.data.data
+            : [];
+
+        const classData = Array.isArray(
+          classResponse?.data
+        )
+          ? classResponse.data
+          : Array.isArray(classResponse?.data?.data)
+            ? classResponse.data.data
+            : [];
+
+        setDepartments(departmentData);
+        setClasses(classData);
       } catch (error) {
-        console.error("Lỗi khi lấy dữ liệu dropdown:", error);
+        console.error(
+          "Lỗi khi lấy dữ liệu dropdown:",
+          error
+        );
       } finally {
         setLoadingDropdowns(false);
       }
@@ -117,46 +289,109 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
     fetchDropdowns();
   }, []);
 
-  // Tự động ẩn toast sau 5 giây
   useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 5000);
+    if (!toast) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      setToast(null);
+    }, 5000);
+
     return () => clearTimeout(timer);
   }, [toast]);
 
-  // Fetch chi tiết user khi vào chế độ sửa
   useEffect(() => {
-    if (!isEditing) return;
+    if (
+      !isEditing ||
+      loadingRoles ||
+      roles.length === 0
+    ) {
+      return;
+    }
 
     const fetchUser = async () => {
       setLoadingUser(true);
+
       try {
         const response = await getUserFromApi(userId);
-        if (response.status && response.data) {
+
+        if (response?.status && response?.data) {
           const user = response.data;
 
-          // Map dữ liệu API sang form fields
           setFormData({
-            ma_vai_tro: user.role_id,
-            ho_ten: user.full_name || "",
+            ma_vai_tro: String(
+              user.role_id ||
+                user.ma_vai_tro ||
+                user.role?.id ||
+                ""
+            ),
+
+            ho_ten:
+              user.full_name ||
+              user.ho_ten ||
+              "",
+
             email: user.email || "",
-            mat_khau: "", // Không hiển thị mật khẩu cũ
-            so_dien_thoai: user.phone || "",
-            gioi_tinh: user.gender || "",
-            ngay_sinh: user.date_of_birth || "",
-            // Sinh viên
-            ma_sinh_vien: user.student?.student_code || "",
-            ma_lop: user.student?.class_id || "",
-            nien_khoa: user.student?.course_year || "",
-            // Giảng viên
-            ma_giang_vien: user.teacher?.teacher_code || "",
-            ma_phong_ban: user.teacher?.department_id || "",
+
+            mat_khau: "",
+
+            so_dien_thoai:
+              user.phone ||
+              user.so_dien_thoai ||
+              "",
+
+            gioi_tinh:
+              user.gender ||
+              user.gioi_tinh ||
+              "",
+
+            ngay_sinh:
+              user.date_of_birth ||
+              user.ngay_sinh ||
+              "",
+
+            ma_sinh_vien:
+              user.student?.student_code ||
+              user.student?.ma_sinh_vien ||
+              user.ma_sinh_vien ||
+              "",
+
+            ma_lop: String(
+              user.student?.class_id ||
+                user.student?.ma_lop ||
+                user.ma_lop ||
+                ""
+            ),
+
+            nien_khoa:
+              user.student?.course_year ||
+              user.student?.nien_khoa ||
+              user.nien_khoa ||
+              "",
+
+            ma_giang_vien:
+              user.teacher?.teacher_code ||
+              user.teacher?.ma_giang_vien ||
+              user.ma_giang_vien ||
+              "",
+
+            ma_phong_ban: String(
+              user.teacher?.department_id ||
+                user.teacher?.ma_phong_ban ||
+                user.ma_phong_ban ||
+                ""
+            ),
           });
         } else {
           setUserNotFound(true);
         }
       } catch (error) {
-        console.error("Lỗi khi lấy thông tin user:", error);
+        console.error(
+          "Lỗi khi lấy thông tin người dùng:",
+          error
+        );
+
         setUserNotFound(true);
       } finally {
         setLoadingUser(false);
@@ -164,272 +399,435 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
     };
 
     fetchUser();
-  }, [isEditing, userId]);
+  }, [
+    isEditing,
+    loadingRoles,
+    roles.length,
+    userId,
+  ]);
 
-  // Redirect nếu không tìm thấy user khi edit
   if (userNotFound) {
-    return <Navigate to="/admin/users" replace />;
+    return (
+      <Navigate
+        to="/admin/users"
+        replace
+      />
+    );
   }
 
-  /**
-   * Xử lý thay đổi trường input.
-   * Xóa lỗi field tương ứng khi người dùng sửa giá trị.
-   */
   const handleChange = (event) => {
     const { name, value } = event.target;
 
     setFormData((prev) => {
-      const next = { ...prev, [name]: value };
+      const nextFormData = {
+        ...prev,
+        [name]: value,
+      };
 
-      // Đổi vai trò → reset trường đặc thù để tránh gửi dữ liệu sai
       if (name === "ma_vai_tro") {
-        next.ma_sinh_vien = "";
-        next.ma_lop = "";
-        next.nien_khoa = "";
-        next.ma_giang_vien = "";
-        next.ma_phong_ban = "";
+        nextFormData.ma_sinh_vien = "";
+        nextFormData.ma_lop = "";
+        nextFormData.nien_khoa = "";
+
+        nextFormData.ma_giang_vien = "";
+        nextFormData.ma_phong_ban = "";
       }
 
-      return next;
+      return nextFormData;
     });
 
-    // Xóa lỗi field khi user sửa
-    if (fieldErrors[name]) {
-      setFieldErrors((prev) => {
-        const updated = { ...prev };
-        delete updated[name];
-        return updated;
-      });
-    }
+    setFieldErrors((prev) => {
+      const nextErrors = { ...prev };
+
+      delete nextErrors[name];
+
+      if (name === "ma_vai_tro") {
+        delete nextErrors.ma_sinh_vien;
+        delete nextErrors.ma_lop;
+        delete nextErrors.nien_khoa;
+        delete nextErrors.ma_giang_vien;
+        delete nextErrors.ma_phong_ban;
+      }
+
+      return nextErrors;
+    });
 
     setGeneralError("");
   };
 
-  /**
-   * Xử lý submit form: gọi createUserFromApi hoặc updateUserFromApi.
-   * Catch lỗi 422 để hiển thị validation errors từng trường.
-   */
   const handleSubmit = async (event) => {
     event.preventDefault();
+
     setFieldErrors({});
     setGeneralError("");
 
-    // Build payload chỉ gồm các trường phù hợp với vai trò
+    if (!formData.ma_vai_tro) {
+      setFieldErrors({
+        ma_vai_tro: "Vui lòng chọn vai trò.",
+      });
+
+      return;
+    }
+
     const payload = {
       ma_vai_tro: Number(formData.ma_vai_tro),
       ho_ten: formData.ho_ten.trim(),
       email: formData.email.trim(),
-      so_dien_thoai: formData.so_dien_thoai?.trim() || null,
-      gioi_tinh: formData.gioi_tinh || null,
-      ngay_sinh: formData.ngay_sinh || null,
+
+      so_dien_thoai:
+        formData.so_dien_thoai?.trim() || null,
+
+      gioi_tinh:
+        formData.gioi_tinh || null,
+
+      ngay_sinh:
+        formData.ngay_sinh || null,
     };
 
-    // Chỉ gửi mật khẩu khi tạo mới hoặc khi có nhập mật khẩu mới lúc sửa
     if (!isEditing) {
       payload.mat_khau = formData.mat_khau;
     } else if (formData.mat_khau.trim()) {
-      payload.mat_khau = formData.mat_khau.trim();
+      payload.mat_khau =
+        formData.mat_khau.trim();
     }
 
-    // Thêm trường riêng cho sinh viên
     if (isStudentRole) {
-      payload.ma_sinh_vien = formData.ma_sinh_vien.trim();
-      payload.ma_lop = formData.ma_lop ? Number(formData.ma_lop) : null;
-      payload.nien_khoa = formData.nien_khoa.trim();
+      payload.ma_sinh_vien =
+        formData.ma_sinh_vien.trim();
+
+      payload.ma_lop = formData.ma_lop
+        ? Number(formData.ma_lop)
+        : null;
+
+      payload.nien_khoa =
+        formData.nien_khoa.trim();
     }
 
-    // Thêm trường riêng cho giảng viên
     if (isTeacherRole) {
-      payload.ma_giang_vien = formData.ma_giang_vien.trim();
-      payload.ma_phong_ban = formData.ma_phong_ban ? Number(formData.ma_phong_ban):null;
+      payload.ma_giang_vien =
+        formData.ma_giang_vien.trim();
+
+      payload.ma_phong_ban =
+        formData.ma_phong_ban
+          ? Number(formData.ma_phong_ban)
+          : null;
     }
 
     setSubmitting(true);
-    try {
-      let response;
-      if (isEditing) {
-        response = await updateUserFromApi(userId, payload);
-      } else {
-        response = await createUserFromApi(payload);
-      }
 
-      if (response.status) {
+    try {
+      const response = isEditing
+        ? await updateUserFromApi(
+            userId,
+            payload
+          )
+        : await createUserFromApi(payload);
+
+      if (response?.status) {
         navigate(backPath);
+      } else {
+        setGeneralError(
+          response?.message ||
+            "Không thể lưu người dùng."
+        );
       }
     } catch (error) {
-      // Parse lỗi validation 422 từ backend và hiển thị theo từng field
-      if (error.status === 422 && error.payload?.data) {
-        const serverErrors = error.payload.data;
-        const mapped = {};
-        for (const [field, messages] of Object.entries(serverErrors)) {
-          mapped[field] = Array.isArray(messages) ? messages[0] : messages;
+      const serverErrors =
+        error?.payload?.data ||
+        error?.response?.data?.data ||
+        error?.response?.data?.errors;
+
+      if (
+        error?.status === 422 ||
+        error?.response?.status === 422
+      ) {
+        const mappedErrors = {};
+
+        for (const [field, messages] of Object.entries(
+          serverErrors || {}
+        )) {
+          mappedErrors[field] =
+            Array.isArray(messages)
+              ? messages[0]
+              : messages;
         }
-        setFieldErrors(mapped);
+
+        setFieldErrors(mappedErrors);
       } else {
-        setGeneralError(error.message || "Đã có lỗi xảy ra, vui lòng thử lại.");
+        setGeneralError(
+          error?.message ||
+            error?.response?.data?.message ||
+            "Đã có lỗi xảy ra, vui lòng thử lại."
+        );
       }
     } finally {
       setSubmitting(false);
     }
   };
 
-  /**
-   * Component hiển thị lỗi dưới mỗi trường input.
-   */
   const renderFieldError = (name) => {
     if (!fieldErrors[name]) {
       return null;
     }
 
-    return <p className="mt-1 text-xs font-medium text-rose-600">{fieldErrors[name]}</p>;
+    return (
+      <p className="mt-1 text-xs font-medium text-rose-600">
+        {fieldErrors[name]}
+      </p>
+    );
   };
 
-  // CSS class cho input, viền đỏ khi có lỗi
   const inputClass = (name) =>
-    `h-11 w-full rounded-xl border bg-slate-50 px-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white ${fieldErrors[name] ? "border-rose-400 bg-rose-50/30" : "border-slate-200"
+    `h-11 w-full rounded-xl border bg-slate-50 px-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white ${
+      fieldErrors[name]
+        ? "border-rose-400 bg-rose-50/30"
+        : "border-slate-200"
     }`;
 
-  // --- Xử lý nhập file Excel / CSV ---
   const handleCsvFile = (event) => {
     const file = event.target.files?.[0];
-    if (!file) return;
-    setCsvError("");
 
-    const isCsv = file.name.toLowerCase().endsWith('.csv');
+    if (!file) {
+      return;
+    }
+
+    setCsvError("");
+    setCsvRows([]);
+
+    const isCsv = file.name
+      .toLowerCase()
+      .endsWith(".csv");
+
     const reader = new FileReader();
 
-    reader.onload = (e) => {
+    reader.onload = (loadEvent) => {
       try {
         let workbook;
+
         if (isCsv) {
-          // Đối với file CSV, đọc dưới dạng string (FileReader đã giải mã UTF-8)
-          // để tránh lỗi mojibake (vỡ font tiếng Việt) khi file không có BOM.
-          const text = e.target.result;
-          workbook = XLSX.read(text, { type: 'string' });
+          workbook = XLSX.read(
+            loadEvent.target.result,
+            {
+              type: "string",
+            }
+          );
         } else {
-          // Đối với xlsx/xls, đọc mảng byte
-          const data = new Uint8Array(e.target.result);
-          workbook = XLSX.read(data, { type: 'array' });
+          const data = new Uint8Array(
+            loadEvent.target.result
+          );
+
+          workbook = XLSX.read(data, {
+            type: "array",
+          });
         }
 
-        // Lấy sheet đầu tiên
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
+        const firstSheetName =
+          workbook.SheetNames[0];
 
-        // sheet_to_json sẽ tự động chuyển dòng đầu tiên thành key của Object
-        const rows = XLSX.utils.sheet_to_json(worksheet);
+        const worksheet =
+          workbook.Sheets[firstSheetName];
 
-        if (!rows || rows.length === 0) {
-          setCsvError("File không có dữ liệu.");
-          setCsvRows([]);
+        const rows = XLSX.utils.sheet_to_json(
+          worksheet,
+          {
+            defval: "",
+          }
+        );
+
+        if (!rows.length) {
+          setCsvError(
+            "File không có dữ liệu."
+          );
+
           return;
         }
 
-        // Validate dữ liệu từ mảng JSON đã được parse
-        const validRoleNames = roles.map((r) => r.ten_vai_tro);
-        const invalidRow = rows.find((row) => !validRoleNames.includes(row.role));
+        const validRoleNames = roles.map((role) =>
+          normalizeRole(getRoleName(role))
+        );
+
+        const invalidRow = rows.find(
+          (row) =>
+            !validRoleNames.includes(
+              normalizeRole(row.role)
+            )
+        );
+
         if (invalidRow) {
-          setCsvError(`Vai trò không hợp lệ: "${invalidRow.role}". Chỉ nhận ${validRoleNames.join(", ")}.`);
-          setCsvRows([]);
+          setCsvError(
+            `Vai trò không hợp lệ: "${invalidRow.role}". Chỉ nhận: ${validRoleNames.join(", ")}.`
+          );
+
           return;
         }
 
         setCsvRows(rows);
-      } catch {
-        setCsvError("Không thể đọc file. Vui lòng kiểm tra lại định dạng file Excel/CSV.");
+      } catch (error) {
+        console.error(
+          "Lỗi đọc file:",
+          error
+        );
+
+        setCsvError(
+          "Không thể đọc file. Vui lòng kiểm tra lại định dạng Excel hoặc CSV."
+        );
+
         setCsvRows([]);
       }
     };
 
-    // Chọn cách đọc file tương ứng
+    reader.onerror = () => {
+      setCsvError(
+        "Không thể đọc file đã chọn."
+      );
+
+      setCsvRows([]);
+    };
+
     if (isCsv) {
-      reader.readAsText(file, 'UTF-8');
+      reader.readAsText(file, "UTF-8");
     } else {
       reader.readAsArrayBuffer(file);
     }
   };
 
   const handleImportCsv = async () => {
-    if (!csvRows.length) return;
+    if (!csvRows.length) {
+      return;
+    }
 
     setSubmitting(true);
     setCsvError("");
     setToast(null);
 
     try {
-      // Gọi API import hàng loạt
-      const response = await importUsersFromApi({ users: csvRows });
+      const response =
+        await importUsersFromApi({
+          users: csvRows,
+        });
 
-      if (response.status) {
-        const { success_count, errors } = response.data;
+      if (response?.status) {
+        const successCount =
+          response?.data?.success_count || 0;
 
-        if (errors && errors.length > 0) {
-          setCsvError(`Đã nhập thành công ${success_count}/${csvRows.length} tài khoản.\nCó ${errors.length} dòng lỗi:\n\n${errors.join("\n")}`);
-          setToast({ type: "warning", message: `Đã nhập ${success_count}/${csvRows.length}. Vui lòng xem chi tiết lỗi.` });
+        const errors =
+          response?.data?.errors || [];
+
+        if (errors.length > 0) {
+          setCsvError(
+            `Đã nhập thành công ${successCount}/${csvRows.length} tài khoản.\nCó ${errors.length} dòng lỗi:\n\n${errors.join("\n")}`
+          );
+
+          setToast({
+            type: "warning",
+            message: `Đã nhập ${successCount}/${csvRows.length}. Vui lòng xem chi tiết lỗi.`,
+          });
         } else {
-          setToast({ type: "success", message: `Nhập thành công toàn bộ ${success_count} tài khoản!` });
-          // Nếu thành công hết thì làm trống bảng và chuyển về trang danh sách sau một chút delay
+          setToast({
+            type: "success",
+            message: `Nhập thành công toàn bộ ${successCount} tài khoản!`,
+          });
+
           setCsvRows([]);
-          setTimeout(() => navigate(backPath), 1500);
+
+          setTimeout(() => {
+            navigate(backPath);
+          }, 1500);
         }
+      } else {
+        setCsvError(
+          response?.message ||
+            "Nhập dữ liệu thất bại."
+        );
       }
     } catch (error) {
-      setCsvError(error.message || "Đã có lỗi xảy ra trong quá trình nhập dữ liệu từ hệ thống.");
-      setToast({ type: "error", message: "Nhập dữ liệu thất bại!" });
+      setCsvError(
+        error?.message ||
+          error?.response?.data?.message ||
+          "Đã có lỗi xảy ra trong quá trình nhập dữ liệu."
+      );
+
+      setToast({
+        type: "error",
+        message: "Nhập dữ liệu thất bại!",
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Loading spinner khi đang fetch dữ liệu
-  if (loadingUser || loadingDropdowns) {
+  if (
+    loadingRoles ||
+    loadingUser ||
+    loadingDropdowns
+  ) {
     return (
-      <AppShell role="admin" title={pageTitle} subtitle={pageSubtitle}>
+      <AppShell
+        role="admin"
+        title={pageTitle}
+        subtitle={pageSubtitle}
+      >
         <div className="flex items-center justify-center py-20">
-          <Loader2 size={32} className="animate-spin text-blue-500" />
-          <span className="ml-3 text-sm text-slate-500">Đang tải dữ liệu...</span>
+          <Loader2
+            size={32}
+            className="animate-spin text-blue-500"
+          />
+
+          <span className="ml-3 text-sm text-slate-500">
+            Đang tải dữ liệu...
+          </span>
         </div>
       </AppShell>
     );
   }
 
   return (
-    <AppShell role="admin" title={pageTitle} subtitle={pageSubtitle}>
-      {/* Toast thông báo kết quả thao tác */}
+    <AppShell
+      role="admin"
+      title={pageTitle}
+      subtitle={pageSubtitle}
+    >
       {toast && (
         <div
-          className={`mb-4 rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${toast.type === "success"
-            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-            : toast.type === "warning"
-              ? "border-amber-200 bg-amber-50 text-amber-700"
-              : "border-rose-200 bg-rose-50 text-rose-700"
-            }`}
+          className={`mb-4 rounded-xl border px-4 py-3 text-sm font-semibold ${
+            toast.type === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : toast.type === "warning"
+                ? "border-amber-200 bg-amber-50 text-amber-700"
+                : "border-rose-200 bg-rose-50 text-rose-700"
+          }`}
         >
           {toast.message}
         </div>
       )}
 
-      {/* Tab chuyển đổi thêm thủ công / nhập CSV (chỉ khi tạo mới) */}
       {!isEditing && (
         <div className="mb-5 flex gap-2">
           <button
             type="button"
-            onClick={() => setActiveTab("manual")}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "manual"
-              ? "bg-blue-600 text-white shadow-sm"
-              : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-              }`}
+            onClick={() =>
+              setActiveTab("manual")
+            }
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+              activeTab === "manual"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+            }`}
           >
             <FilePen size={16} />
             Thêm thủ công
           </button>
+
           <button
             type="button"
-            onClick={() => setActiveTab("csv")}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "csv"
-              ? "bg-blue-600 text-white shadow-sm"
-              : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-              }`}
+            onClick={() =>
+              setActiveTab("csv")
+            }
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+              activeTab === "csv"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+            }`}
           >
             <FileSpreadsheet size={16} />
             Nhập từ CSV
@@ -437,31 +835,45 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
         </div>
       )}
 
-      {/* ===== TAB THÊM THỦ CÔNG / SỬA ===== */}
       {activeTab === "manual" || isEditing ? (
         <SectionCard title="Thông tin người dùng">
-          <form onSubmit={handleSubmit} className="grid gap-5 lg:grid-cols-2">
-            {/* Vai trò */}
+          <form
+            onSubmit={handleSubmit}
+            className="grid gap-5 lg:grid-cols-2"
+          >
             <label className="space-y-2">
-              <span className="text-sm font-semibold text-slate-700">Vai trò</span>
+              <span className="text-sm font-semibold text-slate-700">
+                Vai trò
+              </span>
+
               <select
                 name="ma_vai_tro"
                 value={formData.ma_vai_tro}
                 onChange={handleChange}
-                className={inputClass("ma_vai_tro")}
+                className={inputClass(
+                  "ma_vai_tro"
+                )}
               >
-                {roles.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.ten_vai_tro}
+                {roles.map((role) => (
+                  <option
+                    key={role.id}
+                    value={String(role.id)}
+                  >
+                    {getRoleLabel(role)}
                   </option>
                 ))}
               </select>
-              {renderFieldError("ma_vai_tro")}
+
+              {renderFieldError(
+                "ma_vai_tro"
+              )}
             </label>
 
-            {/* Họ tên */}
             <label className="space-y-2">
-              <span className="text-sm font-semibold text-slate-700">Họ tên</span>
+              <span className="text-sm font-semibold text-slate-700">
+                Họ tên
+              </span>
+
               <input
                 type="text"
                 name="ho_ten"
@@ -470,12 +882,15 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
                 placeholder="Nhập họ tên"
                 className={inputClass("ho_ten")}
               />
+
               {renderFieldError("ho_ten")}
             </label>
 
-            {/* Email */}
             <label className="space-y-2">
-              <span className="text-sm font-semibold text-slate-700">Email</span>
+              <span className="text-sm font-semibold text-slate-700">
+                Email
+              </span>
+
               <input
                 type="email"
                 name="email"
@@ -484,164 +899,275 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
                 placeholder="user@itlab.vn"
                 className={inputClass("email")}
               />
+
               {renderFieldError("email")}
             </label>
 
-            {/* Mật khẩu */}
             <label className="space-y-2">
               <span className="text-sm font-semibold text-slate-700">
-                {isEditing ? "Mật khẩu mới (bỏ trống nếu không đổi)" : "Mật khẩu"}
+                {isEditing
+                  ? "Mật khẩu mới (bỏ trống nếu không đổi)"
+                  : "Mật khẩu"}
               </span>
+
               <input
                 type="password"
                 name="mat_khau"
                 value={formData.mat_khau}
                 onChange={handleChange}
-                placeholder={isEditing ? "Nhập mật khẩu mới (tùy chọn)" : "Nhập mật khẩu"}
-                className={inputClass("mat_khau")}
+                placeholder={
+                  isEditing
+                    ? "Nhập mật khẩu mới (tùy chọn)"
+                    : "Nhập mật khẩu"
+                }
+                className={inputClass(
+                  "mat_khau"
+                )}
               />
+
               {renderFieldError("mat_khau")}
             </label>
 
-            {/* Số điện thoại */}
             <label className="space-y-2">
-              <span className="text-sm font-semibold text-slate-700">Số điện thoại</span>
+              <span className="text-sm font-semibold text-slate-700">
+                Số điện thoại
+              </span>
+
               <input
                 type="tel"
                 name="so_dien_thoai"
-                value={formData.so_dien_thoai}
+                value={
+                  formData.so_dien_thoai
+                }
                 onChange={handleChange}
                 placeholder="VD: 0900000001"
-                className={inputClass("so_dien_thoai")}
+                className={inputClass(
+                  "so_dien_thoai"
+                )}
               />
-              {renderFieldError("so_dien_thoai")}
+
+              {renderFieldError(
+                "so_dien_thoai"
+              )}
             </label>
 
-            {/* Giới tính */}
             <label className="space-y-2">
-              <span className="text-sm font-semibold text-slate-700">Giới tính</span>
+              <span className="text-sm font-semibold text-slate-700">
+                Giới tính
+              </span>
+
               <select
                 name="gioi_tinh"
                 value={formData.gioi_tinh}
                 onChange={handleChange}
-                className={inputClass("gioi_tinh")}
+                className={inputClass(
+                  "gioi_tinh"
+                )}
               >
-                <option value="">Chưa cập nhật</option>
-                {genders.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
+                <option value="">
+                  Chưa cập nhật
+                </option>
+
+                {genders.map((gender) => (
+                  <option
+                    key={gender}
+                    value={gender}
+                  >
+                    {gender}
                   </option>
                 ))}
               </select>
-              {renderFieldError("gioi_tinh")}
+
+              {renderFieldError(
+                "gioi_tinh"
+              )}
             </label>
 
-            {/* Ngày sinh */}
             <label className="space-y-2">
-              <span className="text-sm font-semibold text-slate-700">Ngày sinh</span>
+              <span className="text-sm font-semibold text-slate-700">
+                Ngày sinh
+              </span>
+
               <input
                 type="date"
                 name="ngay_sinh"
                 value={formData.ngay_sinh}
                 onChange={handleChange}
-                className={inputClass("ngay_sinh")}
+                className={inputClass(
+                  "ngay_sinh"
+                )}
               />
+
               {renderFieldError("ngay_sinh")}
             </label>
 
-            {/* === Trường riêng cho Giảng viên === */}
             {isTeacherRole && (
               <>
                 <label className="space-y-2">
-                  <span className="text-sm font-semibold text-slate-700">{userCodeLabel}</span>
+                  <span className="text-sm font-semibold text-slate-700">
+                    {userCodeLabel}
+                  </span>
+
                   <input
                     type="text"
                     name="ma_giang_vien"
-                    value={formData.ma_giang_vien}
+                    value={
+                      formData.ma_giang_vien
+                    }
                     onChange={handleChange}
                     placeholder="VD: GV0002"
-                    className={inputClass("ma_giang_vien")}
+                    className={inputClass(
+                      "ma_giang_vien"
+                    )}
                   />
-                  {renderFieldError("ma_giang_vien")}
+
+                  {renderFieldError(
+                    "ma_giang_vien"
+                  )}
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-semibold text-slate-700">Phòng ban</span>
+                  <span className="text-sm font-semibold text-slate-700">
+                    Phòng ban
+                  </span>
+
                   <select
                     name="ma_phong_ban"
-                    value={formData.ma_phong_ban}
+                    value={
+                      formData.ma_phong_ban
+                    }
                     onChange={handleChange}
-                    className={inputClass("ma_phong_ban")}
+                    className={inputClass(
+                      "ma_phong_ban"
+                    )}
                   >
-                    <option value="">Chọn phòng ban</option>
-                    {departments.map((dept) => (
-                      <option key={dept.id} value={dept.id}>
-                        {dept.department_name}
-                      </option>
-                    ))}
+                    <option value="">
+                      Chọn phòng ban
+                    </option>
+
+                    {departments.map(
+                      (department) => (
+                        <option
+                          key={department.id}
+                          value={String(
+                            department.id
+                          )}
+                        >
+                          {department.department_name ||
+                            department.ten_phong_ban ||
+                            department.department_code ||
+                            department.ma_phong_ban}
+                        </option>
+                      )
+                    )}
                   </select>
-                  {renderFieldError("ma_phong_ban")}
+
+                  {renderFieldError(
+                    "ma_phong_ban"
+                  )}
                 </label>
               </>
             )}
 
-            {/* === Trường riêng cho Sinh viên === */}
             {isStudentRole && (
               <>
                 <label className="space-y-2">
-                  <span className="text-sm font-semibold text-slate-700">{userCodeLabel}</span>
+                  <span className="text-sm font-semibold text-slate-700">
+                    {userCodeLabel}
+                  </span>
+
                   <input
                     type="text"
                     name="ma_sinh_vien"
-                    value={formData.ma_sinh_vien}
+                    value={
+                      formData.ma_sinh_vien
+                    }
                     onChange={handleChange}
                     placeholder="VD: 0306231178"
-                    className={inputClass("ma_sinh_vien")}
+                    className={inputClass(
+                      "ma_sinh_vien"
+                    )}
                   />
-                  {renderFieldError("ma_sinh_vien")}
+
+                  {renderFieldError(
+                    "ma_sinh_vien"
+                  )}
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-semibold text-slate-700">Niên khóa</span>
+                  <span className="text-sm font-semibold text-slate-700">
+                    Niên khóa
+                  </span>
+
                   <input
                     type="text"
                     name="nien_khoa"
                     value={formData.nien_khoa}
                     onChange={handleChange}
-                    placeholder="VD: 2022-2026"
-                    className={inputClass("nien_khoa")}
+                    placeholder="VD: 2023-2026"
+                    className={inputClass(
+                      "nien_khoa"
+                    )}
                   />
-                  {renderFieldError("nien_khoa")}
+
+                  {renderFieldError(
+                    "nien_khoa"
+                  )}
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-semibold text-slate-700">Lớp học</span>
+                  <span className="text-sm font-semibold text-slate-700">
+                    Lớp học
+                  </span>
+
                   <select
                     name="ma_lop"
                     value={formData.ma_lop}
                     onChange={handleChange}
-                    className={inputClass("ma_lop")}
+                    className={inputClass(
+                      "ma_lop"
+                    )}
                   >
-                    <option value="">Chọn lớp học</option>
-                    {classes.map((cls) => (
-                      <option key={cls.id} value={cls.id}>
-                        {cls.ma_lop}
-                      </option>
-                    ))}
+                    <option value="">
+                      Chọn lớp học
+                    </option>
+
+                    {classes.map(
+                      (classItem) => (
+                        <option
+                          key={classItem.id}
+                          value={String(
+                            classItem.id
+                          )}
+                        >
+                          {classItem.ma_lop ||
+                            classItem.class_code ||
+                            classItem.ten_lop ||
+                            classItem.class_name}
+                        </option>
+                      )
+                    )}
                   </select>
+
                   {renderFieldError("ma_lop")}
                 </label>
               </>
             )}
 
-            {/* Lỗi chung từ server */}
+            {(isAdminRole ||
+              isTechnicianRole) && (
+              <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700 lg:col-span-2">
+                Vai trò này chỉ cần nhập thông
+                tin tài khoản chung.
+              </div>
+            )}
+
             {generalError && (
               <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 lg:col-span-2">
                 {generalError}
               </div>
             )}
 
-            {/* Nút hành động */}
             <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 lg:col-span-2">
               <Link
                 to={backPath}
@@ -649,44 +1175,77 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
               >
                 Hủy
               </Link>
+
               <button
                 type="submit"
                 disabled={submitting}
                 className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
               >
                 {submitting ? (
-                  <Loader2 size={16} className="animate-spin" />
+                  <Loader2
+                    size={16}
+                    className="animate-spin"
+                  />
                 ) : (
                   <Save size={16} />
                 )}
-                {submitting ? "Đang lưu..." : "Lưu người dùng"}
+
+                {submitting
+                  ? "Đang lưu..."
+                  : "Lưu người dùng"}
               </button>
             </div>
           </form>
         </SectionCard>
       ) : (
-        /* ===== TAB NHẬP CSV ===== */
         <SectionCard title="Nhập danh sách người dùng từ CSV">
           <div className="space-y-5">
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-              File CSV cần có dòng đầu (header) gồm các cột:{" "}
+              File CSV cần có dòng đầu gồm các
+              cột:{" "}
               <code className="rounded bg-slate-200 px-1.5 py-0.5 text-xs">
                 role,code,name,email,phone,password,course,classCode,departmentCode
               </code>
+
               <ul className="mt-2 list-disc pl-5">
-                <li><strong>role</strong>: admin / student / teacher / technician</li>
-                <li><strong>code</strong>: bắt buộc với Giảng viên, Sinh viên</li>
-                <li><strong>course</strong>, <strong>classCode</strong>: chỉ áp dụng cho Sinh viên<br/>(classCode là mã lớp dạng chuỗi, ví dụ: CK23A — tra trong danh sách lớp học)</li>
-                <li><strong>departmentCode</strong>: chỉ áp dụng cho Giảng viên<br/>(nhập mã phòng ban dạng chuỗi, ví dụ: CNTT — không phải số id)</li>
+                <li>
+                  <strong>role</strong>: admin,
+                  student, teacher hoặc technician
+                </li>
+
+                <li>
+                  <strong>code</strong>: bắt buộc
+                  với giảng viên và sinh viên
+                </li>
+
+                <li>
+                  <strong>course</strong> và{" "}
+                  <strong>classCode</strong>: chỉ
+                  áp dụng cho sinh viên
+                </li>
+
+                <li>
+                  <strong>
+                    departmentCode
+                  </strong>
+                  : chỉ áp dụng cho giảng viên
+                </li>
               </ul>
             </div>
 
             <label className="flex h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-white text-sm text-slate-500 transition hover:border-blue-400 hover:bg-blue-50">
-              <UploadCloud size={24} className="text-slate-400" />
+              <UploadCloud
+                size={24}
+                className="text-slate-400"
+              />
+
+              <span>
+                Chọn file Excel hoặc CSV
+              </span>
+
               <input
                 type="file"
-                // Cập nhật accept để hỗ trợ cả CSV và Excel
-                accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                accept=".csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                 onChange={handleCsvFile}
                 className="hidden"
               />
@@ -703,29 +1262,78 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-50 text-slate-600">
                     <tr>
-                      <th className="px-3 py-2">Vai trò</th>
-                      <th className="px-3 py-2">Mã</th>
-                      <th className="px-3 py-2">Họ tên</th>
-                      <th className="px-3 py-2">Email</th>
-                      <th className="px-3 py-2">Niên khóa / Mã lớp</th>
-                      <th className="px-3 py-2">Phòng ban</th>
+                      <th className="px-3 py-2">
+                        Vai trò
+                      </th>
+
+                      <th className="px-3 py-2">
+                        Mã
+                      </th>
+
+                      <th className="px-3 py-2">
+                        Họ tên
+                      </th>
+
+                      <th className="px-3 py-2">
+                        Email
+                      </th>
+
+                      <th className="px-3 py-2">
+                        Niên khóa / Mã lớp
+                      </th>
+
+                      <th className="px-3 py-2">
+                        Phòng ban
+                      </th>
                     </tr>
                   </thead>
+
                   <tbody className="divide-y divide-slate-100">
-                    {csvRows.map((row, index) => (
-                      <tr key={`${row.email}-${index}`}>
-                        <td className="px-3 py-2">{row.role}</td>
-                        <td className="px-3 py-2">{row.code}</td>
-                        <td className="px-3 py-2">{row.name}</td>
-                        <td className="px-3 py-2">{row.email}</td>
-                        <td className="px-3 py-2">
-                          {row.role === "student" ? `${row.course ?? "-"} / ${row.classCode ?? "-"}` : "-"}
-                        </td>
-                        <td className="px-3 py-2">
-                          {row.role === "teacher" ? (row.departmentCode ?? "-") : "-"}
-                        </td>
-                      </tr>
-                    ))}
+                    {csvRows.map(
+                      (row, index) => {
+                        const rowRole =
+                          normalizeRole(
+                            row.role
+                          );
+
+                        return (
+                          <tr
+                            key={`${row.email}-${index}`}
+                          >
+                            <td className="px-3 py-2">
+                              {row.role}
+                            </td>
+
+                            <td className="px-3 py-2">
+                              {row.code}
+                            </td>
+
+                            <td className="px-3 py-2">
+                              {row.name}
+                            </td>
+
+                            <td className="px-3 py-2">
+                              {row.email}
+                            </td>
+
+                            <td className="px-3 py-2">
+                              {rowRole ===
+                              "student"
+                                ? `${row.course || "-"} / ${row.classCode || "-"}`
+                                : "-"}
+                            </td>
+
+                            <td className="px-3 py-2">
+                              {rowRole ===
+                              "teacher"
+                                ? row.departmentCode ||
+                                  "-"
+                                : "-"}
+                            </td>
+                          </tr>
+                        );
+                      }
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -738,18 +1346,28 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
               >
                 Hủy
               </Link>
+
               <button
                 type="button"
-                disabled={!csvRows.length || submitting}
+                disabled={
+                  !csvRows.length ||
+                  submitting
+                }
                 onClick={handleImportCsv}
                 className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 {submitting ? (
-                  <Loader2 size={16} className="animate-spin" />
+                  <Loader2
+                    size={16}
+                    className="animate-spin"
+                  />
                 ) : (
                   <Save size={16} />
                 )}
-                {submitting ? "Đang nhập..." : `Nhập ${csvRows.length || ""} tài khoản`}
+
+                {submitting
+                  ? "Đang nhập..."
+                  : `Nhập ${csvRows.length || ""} tài khoản`}
               </button>
             </div>
           </div>

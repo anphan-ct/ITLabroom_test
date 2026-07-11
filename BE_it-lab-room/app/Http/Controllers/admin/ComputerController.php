@@ -138,14 +138,15 @@ class ComputerController extends Controller
     {
         try {
             $data = $request->validated();
+            $positionFromName = $this->extractPositionFromComputerName($data['ten_may']);
 
-            DB::transaction(function () use ($computer, $data) {
+            DB::transaction(function () use ($computer, $data, $positionFromName) {
                 // Cập nhật một máy cụ thể, không ảnh hưởng các máy khác cùng phiếu nhập.
                 $computer->update([
                     'ma_phong' => $data['ma_phong'],
                     'ma_may' => strtoupper($data['ma_may']),
                     'ten_may' => $data['ten_may'],
-                    'vi_tri' => $data['vi_tri'] ?? null,
+                    'vi_tri' => $positionFromName ?? ($data['vi_tri'] ?? null),
                     'ma_qr' => $data['ma_qr'] ?? null,
                     'bo_xu_ly' => $data['bo_xu_ly'] ?? null,
                     'ram' => $data['ram'] ?? null,
@@ -212,6 +213,15 @@ class ComputerController extends Controller
                 'data' => '',
             ], 500);
         }
+    }
+
+    private function extractPositionFromComputerName(string $computerName): ?string
+    {
+        if (! preg_match('/(\d+)$/u', trim($computerName), $matches)) {
+            return null;
+        }
+
+        return str_pad($matches[1], 2, '0', STR_PAD_LEFT);
     }
 
     private function generateUniqueQrCode(Computer $computer): string

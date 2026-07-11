@@ -1,7 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import Login from "./components/common/Login.jsx";
 import { ProtectedRoute, PublicOnlyAnyRoute } from "./components/common/ProtectedRoute.jsx";
-import AdminDashboard from "./components/pages/admin/AdminDashboard.jsx";
 import UsersPage from "./components/pages/admin/UsersPage.jsx";
 import UserFormPage from "./components/pages/admin/UserFormPage.jsx";
 import ClassesPage from "./components/pages/admin/ClassesPage.jsx";
@@ -56,7 +55,7 @@ export default function App() {
 
       <Route path="/login" element={<PublicOnlyAnyRoute><Login /></PublicOnlyAnyRoute>} />
 
-      <Route path="/admin" element={<ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/admin" element={<ProtectedRoute role="admin"><Navigate to="/admin/users" replace /></ProtectedRoute>} />
       <Route path="/admin/users" element={<ProtectedRoute role="admin"><UsersPage /></ProtectedRoute>} />
       <Route path="/admin/users/create" element={<ProtectedRoute role="admin"><UserFormPage /></ProtectedRoute>} />
       <Route path="/admin/users/:userId/edit" element={<ProtectedRoute role="admin"><UserFormPage /></ProtectedRoute>} />
@@ -118,6 +117,8 @@ export default function App() {
       <Route path="/teacher/schedules" element={<ProtectedRoute role="teacher"><TeacherSchedulePage /></ProtectedRoute>} />
       <Route path="/teacher/attendance" element={<ProtectedRoute role="teacher"><AttendancePage /></ProtectedRoute>} />
       <Route path="/teacher/attendance/schedules/:scheduleId" element={<ProtectedRoute role="teacher"><TeacherScheduleAttendancePage /></ProtectedRoute>} />
+      <Route path="/teacher/attendance/schedules/:scheduleId/computers/:computerId/confirm" element={<ProtectedRoute role="teacher"><TeacherScheduleAttendancePage /></ProtectedRoute>} />
+      <Route path="/teacher/attendance/schedules/:scheduleId/computers/:computerId/check-in" element={<ProtectedRoute role="teacher"><TeacherScheduleAttendancePage /></ProtectedRoute>} />
       <Route path="/teacher/loan-requests" element={<ProtectedRoute role="teacher"><LoanRequestsManagePage /></ProtectedRoute>} />
       <Route path="/teacher/loan-details" element={<ProtectedRoute role="teacher"><LoanDetailsPage /></ProtectedRoute>} />
       <Route path="/teacher/computer-returns" element={<ProtectedRoute role="teacher"><ComputerReturnsPage /></ProtectedRoute>} />

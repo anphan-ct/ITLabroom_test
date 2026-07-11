@@ -64,13 +64,12 @@ class ComputerImportController extends Controller
                     ->findOrFail($data['ma_phong']);
 
                 $tenPhong = trim($phongMay->ten_phong);
-                $tenPhongPattern = preg_quote($tenPhong, '/');
-                $soTenMayLonNhatTrongPhong = Computer::query()
+                $soViTriLonNhatTrongPhong = Computer::query()
                     ->where('ma_phong', $phongMay->id)
-                    ->pluck('ten_may')
-                    ->map(function ($tenMay) use ($tenPhongPattern) {
-                        // Lấy số cuối trong tên máy theo định dạng tên phòng + số máy, ví dụ F7.1-01.
-                        if (preg_match('/^'.$tenPhongPattern.'-(\d+)$/u', $tenMay, $matches)) {
+                    ->pluck('vi_tri')
+                    ->map(function ($viTri) {
+                        // Lấy số vị trí cuối cùng để đặt tên máy theo vị trí, ví dụ vị trí 01 => F7.1-01.
+                        if (preg_match('/(\d+)$/u', (string) $viTri, $matches)) {
                             return (int) $matches[1];
                         }
 
@@ -82,8 +81,9 @@ class ComputerImportController extends Controller
 
                 for ($i = 1; $i <= (int) $data['so_luong']; $i++) {
                     $soThuTuMay = str_pad((string) $i, 3, '0', STR_PAD_LEFT);
+                    $viTriMay = str_pad((string) ($soViTriLonNhatTrongPhong + $i), 2, '0', STR_PAD_LEFT);
                     $maMay = 'PC-'.$maPhieuNhapNumber.'-'.$soThuTuMay;
-                    $tenMay = $tenPhong.'-'.str_pad((string) ($soTenMayLonNhatTrongPhong + $i), 2, '0', STR_PAD_LEFT);
+                    $tenMay = $tenPhong.'-'.$viTriMay;
 
                     if (Computer::where('ma_may', $maMay)->exists()) {
                         throw ValidationException::withMessages([
@@ -106,6 +106,7 @@ class ComputerImportController extends Controller
                         'ma_phong' => $phongMay->id,
                         'ma_may' => $maMay,
                         'ten_may' => $tenMay,
+                        'vi_tri' => $viTriMay,
                         'ma_qr' => $this->generateUniqueQrCode($maMay),
                         'bo_xu_ly' => $data['bo_xu_ly'] ?? null,
                         'ram' => $data['ram'] ?? null,

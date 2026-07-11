@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   AlertTriangle,
@@ -23,10 +23,10 @@ import {
   checkInStudentAttendanceFromApi,
   getStudentScheduleAttendanceFromApi,
 } from "../../../services/attendance.service";
-import { createIncidentReport } from "../../../services/incidentReport.service";
 
 export default function StudentAttendanceDetailPage() {
   const { scheduleId } = useParams();
+  const navigate = useNavigate();
   const [schedule, setSchedule] = useState(null);
   const [attendanceWindow, setAttendanceWindow] = useState(null);
   const [attendance, setAttendance] = useState(null);
@@ -34,7 +34,6 @@ export default function StudentAttendanceDetailPage() {
   const [selectedComputerId, setSelectedComputerId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [reportingComputerId, setReportingComputerId] = useState(null);
   const [isComputerModalOpen, setIsComputerModalOpen] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -209,35 +208,24 @@ export default function StudentAttendanceDetailPage() {
     }
   };
 
-  const handleReportBrokenComputer = async () => {
+  const handleReportBrokenComputer = () => {
     if (!selectedComputer) {
       setError("Vui lòng chọn máy tính cần báo hỏng.");
       return;
     }
 
-    setReportingComputerId(selectedComputer.id);
-    setError("");
-    setSuccessMessage("");
+    const computerCode = selectedComputer.ma_may || selectedComputer.code || selectedComputer.ten_may || "";
 
-    try {
-      await createIncidentReport("student", {
-        ma_may_tinh: Number(selectedComputer.id),
-        ma_thiet_bi: null,
-        loai_su_co: "phan_cung",
-        tieu_de: `Báo hỏng máy ${selectedComputer.ma_may || selectedComputer.ten_may || ""}`.trim(),
-        mo_ta: `Sinh viên báo hỏng khi chọn máy điểm danh. Lịch học: ${schedule?.subject || "-"}, phòng ${schedule?.room || "-"}.`,
-        muc_do: "cao",
-      });
-      setSuccessMessage(`Đã gửi báo hỏng cho máy ${selectedComputer.ma_may || selectedComputer.ten_may}.`);
-    } catch (apiError) {
-      setError(
-        apiError?.payload?.message ||
-          apiError.message ||
-          "Không thể gửi báo hỏng máy tính."
-      );
-    } finally {
-      setReportingComputerId(null);
-    }
+    navigate("/student/incidents", {
+      state: {
+        roomId: selectedComputer.ma_phong ? String(selectedComputer.ma_phong) : "",
+        computerCode,
+        title: `Báo hỏng máy ${computerCode}`.trim(),
+        incidentType: "phan_cung",
+        severity: "cao",
+        description: `Sinh viên báo hỏng khi chọn máy điểm danh. Lịch học: ${schedule?.subject || "-"}, phòng ${schedule?.room || "-"}.`,
+      },
+    });
   };
 
   if (!isLoading && !error && !schedule) {
@@ -421,11 +409,10 @@ export default function StudentAttendanceDetailPage() {
                   <button
                     type="button"
                     onClick={handleReportBrokenComputer}
-                    disabled={reportingComputerId === selectedComputer.id}
                     className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                   >
                     <AlertTriangle size={16} />
-                    {reportingComputerId === selectedComputer.id ? "Đang báo hỏng..." : "Báo hỏng máy"}
+                    Báo hỏng máy
                   </button>
 
                   <button

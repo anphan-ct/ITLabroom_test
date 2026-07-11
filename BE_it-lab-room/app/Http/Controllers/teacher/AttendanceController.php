@@ -4,9 +4,9 @@ namespace App\Http\Controllers\teacher;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\TeacherAttendanceRequest;
+use App\Http\Requests\TeacherBulkAttendanceRequest;
 use App\Http\Resources\AttendanceResource;
 use App\Http\Resources\ComputerLabScheduleResource;
-use App\Http\Resources\ComputerResource;
 use App\Models\Attendance;
 use App\Models\Computer;
 use App\Models\ComputerLabSchedule;
@@ -65,12 +65,12 @@ class AttendanceController extends Controller
                 ->get();
 
             $attendanceRecords = Attendance::query()
-                ->select(['id', 'ma_lich_su_dung', 'ma_sinh_vien', 'ma_may_tinh', 'thoi_gian_check_in', 'trang_thai', 'ghi_chu'])
-                ->with(['computer:id,ma_may,ten_may,vi_tri'])
+                ->select(['id', 'ma_lich_su_dung', 'ma_sinh_vien', 'thoi_gian_check_in', 'trang_thai', 'ghi_chu'])
                 ->where('ma_lich_su_dung', $computerLabSchedule->id)
                 ->whereIn('ma_sinh_vien', $studentIds)
                 ->get()
                 ->keyBy('ma_sinh_vien');
+            $presentCount = $attendanceRecords->where('trang_thai', 'present')->count();
 
             // Ghép danh sách sinh viên của buổi học với bản ghi điểm danh nếu sinh viên đã quét QR.
             $attendanceItems = $students->map(fn (Student $student) => [
@@ -87,10 +87,9 @@ class AttendanceController extends Controller
                     'attendance_window' => AttendanceWindow::resolve($computerLabSchedule),
                     'summary' => [
                         'total_students' => $students->count(),
-                        'checked_in_students' => $attendanceRecords->count(),
-                        'absent_students' => max(0, $students->count() - $attendanceRecords->count()),
+                        'checked_in_students' => $presentCount,
+                        'absent_students' => max(0, $students->count() - $presentCount),
                     ],
-                    'computers' => ComputerResource::collection($this->availableComputers($computerLabSchedule)),
                     'students' => AttendanceResource::collection($attendanceItems),
                 ],
             ], 200);
@@ -229,32 +228,35 @@ class AttendanceController extends Controller
                 ], 409);
             }
 
-            $computer = $this->resolveComputer($data);
-            if (! $computer) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Không tìm thấy máy tính để điểm danh',
-                    'error_code' => 404,
-                    'data' => '',
-                ], 404);
-            }
+            $computer = null;
+            if (($data['ma_may_tinh'] ?? null) || ($data['ma_qr'] ?? null)) {
+                $computer = $this->resolveComputer($data);
+                if (! $computer) {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'Không tìm thấy máy tính để điểm danh',
+                        'error_code' => 404,
+                        'data' => '',
+                    ], 404);
+                }
 
-            if ((int) $computer->ma_phong !== (int) $computerLabSchedule->ma_phong) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Máy tính không thuộc phòng học của lịch này',
-                    'error_code' => 422,
-                    'data' => '',
-                ], 422);
-            }
+                if ((int) $computer->ma_phong !== (int) $computerLabSchedule->ma_phong) {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'Máy tính không thuộc phòng học của lịch này',
+                        'error_code' => 422,
+                        'data' => '',
+                    ], 422);
+                }
 
-            if ($computer->trang_thai !== 'active') {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Máy tính hiện không ở trạng thái hoạt động',
-                    'error_code' => 422,
-                    'data' => '',
-                ], 422);
+                if ($computer->trang_thai !== 'active') {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'Máy tính hiện không ở trạng thái hoạt động',
+                        'error_code' => 422,
+                        'data' => '',
+                    ], 422);
+                }
             }
 
             $attendance = DB::transaction(function () use ($computerLabSchedule, $student, $computer, $data) {
@@ -265,6 +267,13 @@ class AttendanceController extends Controller
                     ->first();
 
                 if ($existingAttendance) {
+                    $existingAttendance->update([
+                        'ma_may_tinh' => $computer?->id,
+                        'thoi_gian_check_in' => $existingAttendance->thoi_gian_check_in ?? Carbon::now(self::ATTENDANCE_TIMEZONE),
+                        'trang_thai' => 'present',
+                        'ghi_chu' => $data['note'] ?? 'Giảng viên điểm danh hộ',
+                    ]);
+
                     return $existingAttendance;
                 }
 
@@ -272,7 +281,7 @@ class AttendanceController extends Controller
                 return Attendance::query()->create([
                     'ma_lich_su_dung' => $computerLabSchedule->id,
                     'ma_sinh_vien' => $student->id,
-                    'ma_may_tinh' => $computer->id,
+                    'ma_may_tinh' => $computer?->id,
                     'thoi_gian_check_in' => Carbon::now(self::ATTENDANCE_TIMEZONE),
                     'trang_thai' => 'present',
                     'ghi_chu' => $data['note'] ?? 'Giảng viên điểm danh hộ',
@@ -280,7 +289,6 @@ class AttendanceController extends Controller
             });
 
             $student->load(['user:id,ho_ten,email', 'class:id,ma_lop']);
-            $attendance->load('computer:id,ma_may,ten_may,vi_tri');
 
             return response()->json([
                 'status' => true,
@@ -298,6 +306,168 @@ class AttendanceController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Không thể điểm danh sinh viên',
+                'error_code' => 500,
+                'data' => '',
+            ], 500);
+        }
+    }
+
+    public function bulkSave(
+        TeacherBulkAttendanceRequest $request,
+        ComputerLabSchedule $computerLabSchedule
+    ): JsonResponse {
+        try {
+            $data = $request->validated();
+            $teacher = $request->user()?->teacher;
+
+            if (! $teacher) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Tài khoản chưa có hồ sơ giảng viên',
+                    'error_code' => 403,
+                    'data' => '',
+                ], 403);
+            }
+
+            if ((int) $computerLabSchedule->ma_giang_vien !== (int) $teacher->id) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Bạn không có quyền điểm danh cho lịch dạy này',
+                    'error_code' => 403,
+                    'data' => '',
+                ], 403);
+            }
+
+            $window = AttendanceWindow::resolve($computerLabSchedule);
+            if ($window['status'] !== 'open') {
+                return response()->json([
+                    'status' => false,
+                    'message' => $window['status'] === 'closed' ? 'Điểm danh đã đóng' : 'Điểm danh chưa mở',
+                    'error_code' => 409,
+                    'data' => $window,
+                ], 409);
+            }
+
+            $computer = null;
+            if ($data['ma_may_tinh'] ?? null) {
+                $computer = $this->resolveComputer(['ma_may_tinh' => $data['ma_may_tinh']]);
+
+                if (! $computer) {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'Không tìm thấy máy tính để điểm danh',
+                        'error_code' => 404,
+                        'data' => '',
+                    ], 404);
+                }
+
+                if ((int) $computer->ma_phong !== (int) $computerLabSchedule->ma_phong) {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'Máy tính không thuộc phòng học của lịch này',
+                        'error_code' => 422,
+                        'data' => '',
+                    ], 422);
+                }
+
+                if ($computer->trang_thai !== 'active') {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'Máy tính hiện không ở trạng thái hoạt động',
+                        'error_code' => 422,
+                        'data' => '',
+                    ], 422);
+                }
+            }
+
+            $allowedStudentIds = $this->scheduleStudentIds($computerLabSchedule);
+            $submittedStudentIds = collect($data['attendances'])
+                ->pluck('student_id')
+                ->map(fn ($studentId) => (int) $studentId);
+
+            if ($submittedStudentIds->diff($allowedStudentIds)->isNotEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Danh sách điểm danh có sinh viên không thuộc lịch học này',
+                    'error_code' => 422,
+                    'data' => '',
+                ], 422);
+            }
+
+            $attendanceRows = collect($data['attendances'])
+                ->keyBy(fn (array $item) => (int) $item['student_id']);
+
+            DB::transaction(function () use ($attendanceRows, $computerLabSchedule, $computer, $data) {
+                $existingRecords = Attendance::query()
+                    ->where('ma_lich_su_dung', $computerLabSchedule->id)
+                    ->whereIn('ma_sinh_vien', $attendanceRows->keys())
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('ma_sinh_vien');
+
+                $now = Carbon::now(self::ATTENDANCE_TIMEZONE);
+
+                $attendanceRows->each(function (array $item, int $studentId) use ($existingRecords, $computerLabSchedule, $computer, $data, $now) {
+                    $status = $item['attendance_status'];
+                    $record = $existingRecords->get($studentId);
+
+                    $payload = [
+                        'ma_lich_su_dung' => $computerLabSchedule->id,
+                        'ma_sinh_vien' => $studentId,
+                        'ma_lop_hoc_phan' => $computerLabSchedule->ma_lop_hoc_phan,
+                        'ma_may_tinh' => $status === 'present' ? $computer?->id : null,
+                        'thoi_gian_check_in' => $status === 'present' ? ($record?->thoi_gian_check_in ?? $now) : null,
+                        'trang_thai' => $status,
+                        'ghi_chu' => $data['note'] ?? 'Giảng viên lưu điểm danh',
+                    ];
+
+                    if ($record) {
+                        $record->update($payload);
+                        return;
+                    }
+
+                    Attendance::query()->create($payload);
+                });
+            });
+
+            $studentIds = $this->scheduleStudentIds($computerLabSchedule);
+            $students = Student::query()
+                ->select(['id', 'ma_nguoi_dung', 'ma_lop', 'ma_sinh_vien', 'nien_khoa'])
+                ->with(['user:id,ho_ten,email', 'class:id,ma_lop'])
+                ->whereIn('id', $studentIds)
+                ->orderBy('ma_sinh_vien')
+                ->get();
+
+            $attendanceRecords = Attendance::query()
+                ->select(['id', 'ma_lich_su_dung', 'ma_sinh_vien', 'thoi_gian_check_in', 'trang_thai', 'ghi_chu'])
+                ->where('ma_lich_su_dung', $computerLabSchedule->id)
+                ->whereIn('ma_sinh_vien', $studentIds)
+                ->get()
+                ->keyBy('ma_sinh_vien');
+
+            $attendanceItems = $students->map(fn (Student $student) => [
+                'student' => $student,
+                'attendance' => $attendanceRecords->get($student->id),
+            ]);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Lưu điểm danh thành công',
+                'error_code' => 200,
+                'data' => [
+                    'attendance_window' => $window,
+                    'summary' => [
+                        'total_students' => $students->count(),
+                        'checked_in_students' => $attendanceRecords->where('trang_thai', 'present')->count(),
+                        'absent_students' => $attendanceRecords->where('trang_thai', 'absent')->count(),
+                    ],
+                    'students' => AttendanceResource::collection($attendanceItems),
+                ],
+            ], 200);
+        } catch (Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Không thể lưu điểm danh sinh viên',
                 'error_code' => 500,
                 'data' => '',
             ], 500);
@@ -327,35 +497,6 @@ class AttendanceController extends Controller
             ->map(fn ($studentId) => (int) $studentId)
             ->unique()
             ->values();
-    }
-
-    private function availableComputers(ComputerLabSchedule $schedule)
-    {
-        return Computer::query()
-            ->select([
-                'id',
-                'ma_phong',
-                'ma_may',
-                'ten_may',
-                'vi_tri',
-                'ma_qr',
-                'bo_xu_ly',
-                'ram',
-                'card_do_hoa',
-                'bo_mach_chu',
-                'man_hinh',
-                'ban_phim',
-                'chuot',
-                'hdd',
-                'ssd',
-                'trang_thai',
-                'ghi_chu',
-            ])
-            ->with('room:id,ma_phong,ten_phong')
-            ->where('ma_phong', $schedule->ma_phong)
-            ->where('trang_thai', 'active')
-            ->orderBy('ma_may')
-            ->get();
     }
 
     private function resolveComputer(array $data): ?Computer

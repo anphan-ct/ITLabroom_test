@@ -44,6 +44,10 @@ export default function IncidentPage({
             role={role}
             initialComputerCode={state?.computerCode}
             initialRoomId={state?.roomId || state?.room || ""}
+            initialTitle={state?.title || ""}
+            initialIncidentType={state?.incidentType || ""}
+            initialSeverity={state?.severity || ""}
+            initialDescription={state?.description || ""}
           />
         ) : (
           <IncidentHistoryList role={role} />

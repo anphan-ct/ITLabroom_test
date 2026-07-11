@@ -2,16 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
-  AlertTriangle,
   CheckCircle2,
   ClipboardCheck,
   Clock3,
-  Cpu,
-  Keyboard,
   Lock,
-  MapPin,
-  MemoryStick,
-  Monitor,
   Search,
   Unlock,
   Users,
@@ -26,7 +20,6 @@ import {
   getTeacherScheduleAttendanceFromApi,
   updateTeacherAttendanceStatusFromApi,
 } from "../../../services/attendance.service";
-import { createIncidentReport } from "../../../services/incidentReport.service";
 
 const statusLabels = {
   present: "Có mặt",
@@ -55,9 +48,6 @@ function mapAttendanceStudent(item) {
     checkedInTime: item.checked_in_time || "-",
     attendanceStatus: item.attendance_status || "absent",
     status: statusLabels[item.attendance_status] || item.attendance_status || "Chưa điểm danh",
-    computerCode: item.computer?.code || "-",
-    computerName: item.computer?.name || "-",
-    computerPosition: item.computer?.position || "-",
   };
 }
 
@@ -70,15 +60,12 @@ export default function TeacherScheduleAttendancePage() {
     absent_students: 0,
   });
   const [attendanceWindow, setAttendanceWindow] = useState(null);
-  const [computers, setComputers] = useState([]);
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [selectedComputerId, setSelectedComputerId] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [checkingInStudentId, setCheckingInStudentId] = useState(null);
-  const [reportingComputerId, setReportingComputerId] = useState(null);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -93,7 +80,6 @@ export default function TeacherScheduleAttendancePage() {
 
       setSchedule(response.data?.schedule || null);
       setAttendanceWindow(response.data?.attendance_window || null);
-      setComputers(response.data?.computers || []);
       setSummary(response.data?.summary || {
         total_students: 0,
         checked_in_students: 0,
@@ -162,7 +148,6 @@ export default function TeacherScheduleAttendancePage() {
 
   const handleOpenCheckInModal = (student) => {
     setSelectedStudent(student);
-    setSelectedComputerId("");
     setError("");
     setSuccessMessage("");
   };
@@ -173,18 +158,12 @@ export default function TeacherScheduleAttendancePage() {
     }
 
     setSelectedStudent(null);
-    setSelectedComputerId("");
   };
 
   const handleCheckInStudent = async (event) => {
     event.preventDefault();
 
     if (!selectedStudent) {
-      return;
-    }
-
-    if (!selectedComputerId) {
-      setError("Vui lòng chọn máy tính.");
       return;
     }
 
@@ -196,43 +175,15 @@ export default function TeacherScheduleAttendancePage() {
 
     try {
       await checkInTeacherStudentAttendanceFromApi(scheduleId, student.id, {
-        ma_may_tinh: Number(selectedComputerId),
+        note: "Giảng viên điểm danh hộ",
       });
       setSuccessMessage(`Đã điểm danh cho ${student.fullName}.`);
       setSelectedStudent(null);
-      setSelectedComputerId("");
       await loadAttendance();
     } catch (apiError) {
       setError(apiError?.payload?.message || apiError.message || "Không thể điểm danh sinh viên.");
     } finally {
       setCheckingInStudentId(null);
-    }
-  };
-
-  const handleReportBrokenComputer = async () => {
-    if (!selectedComputer) {
-      setError("Vui lòng chọn máy tính cần báo hỏng.");
-      return;
-    }
-
-    setReportingComputerId(selectedComputer.id);
-    setError("");
-    setSuccessMessage("");
-
-    try {
-      await createIncidentReport("teacher", {
-        ma_may_tinh: Number(selectedComputer.id),
-        ma_thiet_bi: null,
-        loai_su_co: "phan_cung",
-        tieu_de: `Báo hỏng máy ${selectedComputer.ma_may || selectedComputer.ten_may || ""}`.trim(),
-        mo_ta: `Giảng viên báo hỏng khi chọn máy điểm danh cho sinh viên ${selectedStudent?.fullName || "-"}.`,
-        muc_do: "cao",
-      });
-      setSuccessMessage(`Đã gửi báo hỏng cho máy ${selectedComputer.ma_may || selectedComputer.ten_may}.`);
-    } catch (apiError) {
-      setError(apiError?.payload?.message || apiError.message || "Không thể gửi báo hỏng máy tính.");
-    } finally {
-      setReportingComputerId(null);
     }
   };
 
@@ -250,9 +201,6 @@ export default function TeacherScheduleAttendancePage() {
         student.email,
         student.classCode,
         student.status,
-        student.computerCode,
-        student.computerName,
-        student.computerPosition,
       ].join(" ").toLowerCase();
 
       return searchContent.includes(keyword);
@@ -265,59 +213,12 @@ export default function TeacherScheduleAttendancePage() {
   const attendanceStatusLabel = attendanceWindow?.status_label || "Chưa mở";
   const nextAttendanceAction = attendanceStatus === "open" ? "closed" : "open";
   const canTeacherCheckIn = attendanceStatus === "open";
-  const selectedComputer = computers.find(
-    (computer) => String(computer.id) === String(selectedComputerId)
-  );
-  const selectedComputerCode =
-    selectedComputer?.ma_qr ||
-    selectedComputer?.ma_may ||
-    selectedComputer?.ten_may ||
-    "-";
-  const selectedComputerDisplayName = [
-    selectedComputer?.vi_tri || "Chưa cập nhật",
-    selectedComputer?.ma_may || selectedComputer?.ten_may || "-",
-  ].join(" - ");
-  const selectedComputerPeripheral = [
-    selectedComputer?.ban_phim,
-    selectedComputer?.chuot,
-  ]
-    .filter(Boolean)
-    .join(" / ");
-  const selectedComputerSpecs = selectedComputer
-    ? [
-        {
-          label: "Vị trí / Tên",
-          value: selectedComputerDisplayName,
-          icon: MapPin,
-        },
-        {
-          label: "Bộ xử lý (CPU)",
-          value: selectedComputer.bo_xu_ly || "-",
-          icon: Cpu,
-        },
-        {
-          label: "RAM",
-          value: selectedComputer.ram || "-",
-          icon: MemoryStick,
-        },
-        {
-          label: "Màn hình",
-          value: selectedComputer.man_hinh || "-",
-          icon: Monitor,
-        },
-        {
-          label: "Ngoại vi",
-          value: selectedComputerPeripheral || "-",
-          icon: Keyboard,
-        },
-      ]
-    : [];
 
   return (
     <AppShell
       role="teacher"
-      title="Danh sách sinh viên điểm danh"
-      subtitle="Theo dõi sinh viên đã quét QR máy trong buổi học"
+      title="Điểm danh sinh viên"
+      subtitle="Giảng viên điểm danh trực tiếp cho sinh viên trong lịch học"
     >
       <SectionCard
         title={subject}
@@ -349,7 +250,7 @@ export default function TeacherScheduleAttendancePage() {
                 type="search"
                 value={searchKeyword}
                 onChange={(event) => setSearchKeyword(event.target.value)}
-                placeholder="Tìm MSSV, họ tên, máy..."
+                placeholder="Tìm sinh viên, lớp, trạng thái..."
                 className="w-full min-w-[240px] rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 sm:w-72"
               />
             </div>
@@ -437,37 +338,33 @@ export default function TeacherScheduleAttendancePage() {
 
         <DataTable
           columns={[
-            { key: "studentCode", title: "MSSV" },
-            { key: "fullName", title: "Họ tên" },
+            { key: "studentCode", title: "Mã SV" },
+            { key: "fullName", title: "Sinh viên" },
             { key: "classCode", title: "Lớp" },
-            { key: "checkedInTime", title: "Check-in" },
-            { key: "status", title: "Trạng thái", render: (value) => <StatusBadge value={value} /> },
-            { key: "computerCode", title: "Mã máy" },
-            { key: "computerName", title: "Tên máy" },
-            { key: "computerPosition", title: "Vị trí máy" },
+            { key: "checkedInTime", title: "Giờ điểm danh" },
             {
-              key: "action",
+              key: "attendanceStatus",
+              title: "Trạng thái",
+              render: (value, row) => <StatusBadge value={statusLabels[value] || row.status} />,
+            },
+            {
+              key: "actions",
               title: "Thao tác",
-              render: (_value, row) => {
-                const hasCheckedIn = row.attendanceStatus !== "absent";
-                const isCheckingIn = checkingInStudentId === row.id;
-
-                return (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenCheckInModal(row)}
-                    disabled={!canTeacherCheckIn || hasCheckedIn || isCheckingIn}
-                    className="inline-flex min-w-28 items-center justify-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
-                  >
-                    <CheckCircle2 size={14} />
-                    {isCheckingIn ? "Đang lưu..." : hasCheckedIn ? "Đã điểm danh" : "Điểm danh"}
-                  </button>
-                );
-              },
+              render: (_, row) => (
+                <button
+                  type="button"
+                  onClick={() => handleOpenCheckInModal(row)}
+                  disabled={!canTeacherCheckIn || checkingInStudentId === row.id}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  <ClipboardCheck size={16} />
+                  {row.attendanceStatus === "present" ? "Cập nhật" : "Điểm danh"}
+                </button>
+              ),
             },
           ]}
           data={filteredStudents}
-          emptyText={isLoading ? "Đang tải danh sách sinh viên điểm danh" : "Chưa có sinh viên trong buổi học này"}
+          emptyText={isLoading ? "Đang tải danh sách điểm danh..." : "Chưa có sinh viên trong lịch học này."}
         />
 
         {selectedStudent ? (
@@ -494,105 +391,21 @@ export default function TeacherScheduleAttendancePage() {
                 </button>
               </div>
 
-              <div className="app-scrollbar grid gap-4 overflow-y-auto p-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-                <div className="grid gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
-                      <Monitor size={20} />
-                    </span>
-                    <div>
-                      <h4 className="font-bold text-slate-900">Danh sách máy trong phòng</h4>
-                      <p className="text-sm text-slate-500">Chọn máy sinh viên đang sử dụng</p>
-                    </div>
-                  </div>
-
-                  {computers.length > 0 ? (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {computers.map((computer) => {
-                        const isSelected = String(computer.id) === String(selectedComputerId);
-
-                        return (
-                          <button
-                            key={computer.id}
-                            type="button"
-                            onClick={() => setSelectedComputerId(computer.id)}
-                            className={`min-h-24 rounded-lg border p-4 text-left transition ${
-                              isSelected
-                                ? "border-blue-600 bg-blue-50 text-blue-800 shadow-sm"
-                                : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/60"
-                            }`}
-                          >
-                            <span className="block text-base font-bold">
-                              {computer.ma_may || computer.ten_may}
-                            </span>
-                            <span className="mt-1 block text-sm text-slate-600">
-                              {computer.ten_may || "-"}
-                            </span>
-                            <span className="mt-2 block text-xs font-semibold text-slate-500">
-                              {computer.vi_tri || "Chưa có vị trí"}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-                      Không còn máy khả dụng để điểm danh.
-                    </div>
-                  )}
-                </div>
-
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <div className="mb-5 text-center">
-                    <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-blue-700">
-                      <Monitor size={28} />
-                    </span>
-                    <p className="mt-3 text-base font-bold text-slate-900">
-                      {selectedComputer ? "Thông tin máy đã chọn" : "Chưa chọn máy"}
-                    </p>
-                    <p className="mt-1 text-xs font-semibold text-slate-400">
-                      Mã thiết bị: {selectedComputer ? selectedComputerCode : "-"}
-                    </p>
-                  </div>
-
-                  {selectedComputer ? (
-                    <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
-                      {selectedComputerSpecs.map((item) => {
-                        const Icon = item.icon;
-
-                        return (
-                          <div
-                            key={item.label}
-                            className="grid min-h-11 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-3 px-3 py-2 text-xs sm:text-sm"
-                          >
-                            <span className="flex min-w-0 items-center gap-2 text-slate-500">
-                              <Icon size={15} className="shrink-0" />
-                              <span className="truncate">{item.label}</span>
-                            </span>
-                            <span className="min-w-0 break-words text-right font-semibold text-slate-700">
-                              {item.value}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-
-                  {selectedComputer ? (
-                    <button
-                      type="button"
-                      onClick={handleReportBrokenComputer}
-                      disabled={reportingComputerId === selectedComputer.id}
-                      className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                    >
-                      <AlertTriangle size={16} />
-                      {reportingComputerId === selectedComputer.id ? "Đang báo hỏng..." : "Báo hỏng máy"}
-                    </button>
-                  ) : null}
+              <div className="p-5">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-5 text-center">
+                  <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                    <ClipboardCheck size={28} />
+                  </span>
+                  <p className="mt-3 text-base font-bold text-slate-900">
+                    Xác nhận điểm danh hộ
+                  </p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Sinh viên sẽ được ghi nhận có mặt mà không cần chọn máy tính.
+                  </p>
 
                   <button
                     type="submit"
-                    disabled={!canTeacherCheckIn || !selectedComputerId || checkingInStudentId === selectedStudent.id}
+                    disabled={!canTeacherCheckIn || checkingInStudentId === selectedStudent.id}
                     className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
                   >
                     <ClipboardCheck size={16} />

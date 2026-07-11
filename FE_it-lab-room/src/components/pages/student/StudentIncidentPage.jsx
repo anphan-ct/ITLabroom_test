@@ -40,6 +40,10 @@ export default function StudentIncidentPage() {
             role="student"
             initialComputerCode={state?.computerCode}
             initialRoomId={state?.roomId || state?.room || ""}
+            initialTitle={state?.title || ""}
+            initialIncidentType={state?.incidentType || ""}
+            initialSeverity={state?.severity || ""}
+            initialDescription={state?.description || ""}
           />
         ) : (
           <IncidentHistoryList role="student" />

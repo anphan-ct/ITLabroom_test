@@ -179,10 +179,3 @@ export const loanRequests = [
     purpose: "Mượn máy phục vụ báo cáo môn Cơ sở dữ liệu",
   },
 ];
-
-export const dashboardStats = {
-  totalRooms: 3,
-  totalComputers: 105,
-  brokenComputers: 7,
-  todaySchedules: 6,
-};

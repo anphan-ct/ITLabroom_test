@@ -11,6 +11,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('phieu_bao_tri', 'ma_nguoi_phu_trach')) {
+            return;
+        }
+
         Schema::table('phieu_bao_tri', function (Blueprint $table) {
             $table->foreignId('ma_nguoi_phu_trach')
                 ->nullable()
@@ -22,6 +26,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (! Schema::hasColumn('phieu_bao_tri', 'ma_nguoi_phu_trach')) {
+            return;
+        }
+
         Schema::table('phieu_bao_tri', function (Blueprint $table) {
             $table->dropForeign(['ma_nguoi_phu_trach']);
             $table->dropColumn('ma_nguoi_phu_trach');

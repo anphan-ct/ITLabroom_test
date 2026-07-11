@@ -12,7 +12,7 @@ const AUTH_ENDPOINTS = {
 };
 
 const HOME_PATHS = {
-  [AUTH_ROLES.ADMIN]: "/admin",
+  [AUTH_ROLES.ADMIN]: "/admin/users",
   [AUTH_ROLES.TEACHER]: "/teacher",
   [AUTH_ROLES.STUDENT]: "/student",
 };

@@ -240,7 +240,7 @@ export default function AttendancePage() {
                     className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-800"
                   >
                     <Clock3 size={16} />
-                    Xem điểm danh
+                    Điểm danh
                   </Link>
                 ),
               },

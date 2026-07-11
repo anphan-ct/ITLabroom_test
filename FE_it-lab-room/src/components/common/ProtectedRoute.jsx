@@ -8,7 +8,7 @@ const loginPaths = {
 };
 
 const homePaths = {
-  admin: "/admin",
+  admin: "/admin/users",
   teacher: "/teacher",
   student: "/student",
 };

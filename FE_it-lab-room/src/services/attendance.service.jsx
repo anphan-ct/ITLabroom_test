@@ -25,6 +25,13 @@ export function checkInTeacherStudentAttendanceFromApi(scheduleId, studentId, pa
   });
 }
 
+export function bulkSaveTeacherAttendanceFromApi(scheduleId, payload) {
+  return fetcher(CONST_APIS.TEACHER_ATTENDANCE.BULK_SAVE(scheduleId), {
+    method: CONST_METHODS.POST,
+    body: payload,
+  });
+}
+
 export function getStudentScheduleAttendanceFromApi(scheduleId) {
   return fetcher(CONST_APIS.STUDENT_ATTENDANCE.SCHEDULE(scheduleId), {
     method: CONST_METHODS.GET,

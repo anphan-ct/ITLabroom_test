@@ -11,7 +11,6 @@ class AttendanceResource extends JsonResource
     {
         $attendance = $this->resource['attendance'] ?? null;
         $student = $this->resource['student'] ?? null;
-        $computer = $attendance?->computer;
 
         return [
             'id' => $attendance?->id,
@@ -26,12 +25,6 @@ class AttendanceResource extends JsonResource
             'attendance_status' => $attendance?->trang_thai ?? 'absent',
             'checked_in_at' => $attendance?->thoi_gian_check_in?->format('Y-m-d H:i:s'),
             'checked_in_time' => $attendance?->thoi_gian_check_in?->format('H:i'),
-            'computer' => $computer ? [
-                'id' => $computer->id,
-                'code' => $computer->ma_may,
-                'name' => $computer->ten_may,
-                'position' => $computer->vi_tri,
-            ] : null,
             'note' => $attendance?->ghi_chu,
         ];
     }
