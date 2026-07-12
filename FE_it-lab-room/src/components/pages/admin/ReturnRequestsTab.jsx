@@ -175,19 +175,29 @@ function EditReturnRequestModal({ request, approvedLoans, onClose, onSubmit, isS
   });
   const [error, setError] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.loanId || !form.returnedAt || !form.quantity) {
       setError("Vui lòng điền đầy đủ thông tin.");
       return;
     }
 
-    onSubmit(request.id, {
-      ma_phieu_muon: Number(form.loanId),
-      thoi_gian_tra: form.returnedAt.replace("T", " "),
-      so_luong: Number(form.quantity),
-      ghi_chu: form.note.trim()
-    });
+    setError("");
+    try {
+      await onSubmit(request.id, {
+        ma_phieu_muon: Number(form.loanId),
+        thoi_gian_tra: form.returnedAt.replace("T", " "),
+        so_luong: Number(form.quantity),
+        ghi_chu: form.note.trim()
+      });
+    } catch (err) {
+      // Ưu tiên lấy message lỗi cụ thể theo field từ payload validate (Laravel trả mảng lỗi trong data.<field>[0])
+      const fieldErrors = err?.payload?.data;
+      const specificMessage = fieldErrors
+        ? Object.values(fieldErrors).flat()[0]
+        : null;
+      setError(specificMessage || err?.message || "Lỗi cập nhật phiếu.");
+    }
   };
 
   const selectedLoanForReturn = approvedLoans.find((loanReq) => String(loanReq.id) === String(form.loanId));
@@ -208,15 +218,13 @@ function EditReturnRequestModal({ request, approvedLoans, onClose, onSubmit, isS
 
         <form onSubmit={handleSubmit} className="grid gap-4">
           <Field label="Phiếu mượn">
-            <SelectInput value={form.loanId} onChange={(val) => setForm({ ...form, loanId: val })}>
-              <option value="">Chọn phiếu mượn</option>
-              {approvedLoans.map((loanReq) => {
-                const remaining = loanReq.so_luong_con_lai;
-                // Nếu đây là phiếu mượn gốc của phiếu trả này, cộng lại số lượng để hiển thị đúng "Còn lại"
-                const actualRemaining = loanReq.id === request.ma_phieu_muon ? remaining + request.so_luong : remaining;
-                return <option key={loanReq.id} value={loanReq.id}>{loanReq.ma_phieu_muon} (Còn: {actualRemaining} máy)</option>;
-              })}
-            </SelectInput>
+            <TextInput
+              value={selectedLoanForReturn
+                ? `${selectedLoanForReturn.ma_phieu_muon} (Còn: ${selectedLoanForReturn.so_luong_con_lai + request.so_luong} máy)`
+                : "Không xác định được phiếu mượn gốc"}
+              onChange={() => {}}
+              disabled
+            />
           </Field>
           <Field label="Ngày trả">
             <TextInput type="datetime-local" value={form.returnedAt} onChange={(val) => setForm({ ...form, returnedAt: val })} min={minReturnDate} />
@@ -249,6 +257,7 @@ function EditReturnRequestModal({ request, approvedLoans, onClose, onSubmit, isS
 export default function ReturnRequestsTab() {
   const [receipts, setReceipts] = useState([]);
   const [approvedLoans, setApprovedLoans] = useState([]);
+  const [assignedLoans, setAssignedLoans] = useState([]);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [confirmingRequest, setConfirmingRequest] = useState(null);
@@ -269,6 +278,31 @@ export default function ReturnRequestsTab() {
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
 
+  // Tự ẩn thông báo sau 5 giây
+  useEffect(() => {
+    if (!pageSuccess) return;
+    const timer = setTimeout(() => setPageSuccess(""), 5000);
+    return () => clearTimeout(timer);
+  }, [pageSuccess]);
+
+  useEffect(() => {
+    if (!pageError) return;
+    const timer = setTimeout(() => setPageError(""), 5000);
+    return () => clearTimeout(timer);
+  }, [pageError]);
+
+  useEffect(() => {
+    if (!formSuccess) return;
+    const timer = setTimeout(() => setFormSuccess(""), 5000);
+    return () => clearTimeout(timer);
+  }, [formSuccess]);
+
+  useEffect(() => {
+    if (!formError) return;
+    const timer = setTimeout(() => setFormError(""), 5000);
+    return () => clearTimeout(timer);
+  }, [formError]);
+
   const fetchData = async () => {
     try {
       setIsLoading(true);
@@ -284,6 +318,7 @@ export default function ReturnRequestsTab() {
         const loans = loansRes.data?.data || [];
         // Only show loans that have been assigned computers and still have some to return
         setApprovedLoans(loans.filter(l => l.so_luong_con_lai > 0 && l.details?.length > 0));
+        setAssignedLoans(loans.filter(l => l.details?.length > 0));
       }
     } catch (error) {
       setPageError("Lỗi khi tải dữ liệu.");
@@ -319,7 +354,7 @@ export default function ReturnRequestsTab() {
       setEditingReceipt(null);
       fetchData();
     } catch (error) {
-      setPageError(error.message || "Lỗi cập nhật phiếu.");
+      throw error; // Ném lại lỗi để modal tự hiển thị lỗi validate cụ thể ngay trong form
     } finally {
       setIsUpdating(false);
     }
@@ -444,7 +479,7 @@ export default function ReturnRequestsTab() {
         {editingReceipt && (
           <EditReturnRequestModal
             request={editingReceipt}
-            approvedLoans={approvedLoans}
+            approvedLoans={assignedLoans}
             onClose={() => setEditingReceipt(null)}
             onSubmit={handleUpdate}
             isSubmitting={isUpdating}

@@ -74,7 +74,7 @@ export default function MaintenanceTicketUpdateModal({
             <Field label="Cách xử lý">
               <TextInput value={form.cach_xu_ly} onChange={(val) => onFormChange("cach_xu_ly", val)} />
             </Field>
-            <Field label="Chi phí">
+            <Field label="Chi phí (VNĐ)">
               <TextInput type="number" value={form.chi_phi} onChange={(val) => onFormChange("chi_phi", val)} />
             </Field>
             <Field label="Trạng thái">

@@ -319,6 +319,31 @@ export default function LoanRequestsTab() {
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
 
+  // Tự ẩn thông báo sau 5 giây
+  useEffect(() => {
+    if (!pageSuccess) return;
+    const timer = setTimeout(() => setPageSuccess(""), 5000);
+    return () => clearTimeout(timer);
+  }, [pageSuccess]);
+
+  useEffect(() => {
+    if (!pageError) return;
+    const timer = setTimeout(() => setPageError(""), 5000);
+    return () => clearTimeout(timer);
+  }, [pageError]);
+
+  useEffect(() => {
+    if (!formSuccess) return;
+    const timer = setTimeout(() => setFormSuccess(""), 5000);
+    return () => clearTimeout(timer);
+  }, [formSuccess]);
+
+  useEffect(() => {
+    if (!formError) return;
+    const timer = setTimeout(() => setFormError(""), 5000);
+    return () => clearTimeout(timer);
+  }, [formError]);
+
   const fetchData = async () => {
     try {
       setIsLoading(true);
@@ -551,7 +576,7 @@ export default function LoanRequestsTab() {
                     {item.reason || "—"}
                   </span>
                 ),
-              },  
+              },
               {
                 key: "trang_thai",
                 title: "Trạng thái",

@@ -12,7 +12,7 @@ class ReturnRequestResource extends JsonResource
         return [
             'id'              => $this->id,
             'ma_phieu_tra'    => $this->ma_phieu_tra,
-            'ma_phieu_muon'   => $this->loanRequest?->ma_phieu_muon,
+            'ma_phieu_muon'   => $this->ma_phieu_muon,
             'nguoi_muon'      => $this->loanRequest?->nguoi_muon,
             'ten_giang_vien'  => $this->loanRequest?->nguoi_muon,
             'thoi_gian_tra'   => $this->thoi_gian_tra,
