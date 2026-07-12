@@ -3,8 +3,10 @@ import { CONST_METHODS } from "../constants/methods.constant";
 import { fetcher } from "../helpers/fetcher.helper";
 
 export const loanRequestService = {
-  getAdminLoanRequests: (trangThai = "all", page = 1) => {
-    return fetcher(`${CONST_APIS.LOAN_REQUESTS.ADMIN_INDEX}?trang_thai=${trangThai}&page=${page}`, {
+  getAdminLoanRequests: (trangThai = "all", page = 1, params = {}) => {
+    const query = new URLSearchParams({ trang_thai: trangThai, page, ...params }).toString();
+
+    return fetcher(`${CONST_APIS.LOAN_REQUESTS.ADMIN_INDEX}?${query}`, {
       method: CONST_METHODS.GET,
     });
   },

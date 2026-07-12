@@ -26,6 +26,13 @@ class ReturnRequestController extends Controller
                 $query->where('trang_thai', $status);
             }
 
+            // Lọc lịch sử trả theo máy tính khi xem từ trang chi tiết máy.
+            if ($request->filled('ma_may_tinh')) {
+                $query->whereHas('details', function ($detailQuery) use ($request) {
+                    $detailQuery->where('ma_may_tinh', (int) $request->query('ma_may_tinh'));
+                });
+            }
+
             $requests = $query->orderBy('created_at', 'desc')->paginate(15);
             $requests->getCollection()->transform(function ($item) {
                 return new ReturnRequestResource($item);

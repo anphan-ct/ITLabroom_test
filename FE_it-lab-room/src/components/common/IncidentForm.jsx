@@ -8,6 +8,8 @@ import {
   SEVERITY_OPTIONS,
 } from "../../constants/incident.constant";
 
+const formatLabelParts = (parts) => parts.filter(Boolean).join(" - ");
+
 export default function IncidentForm({
   role = "student",
   initialRoomId = "",
@@ -65,14 +67,17 @@ export default function IncidentForm({
         type: "computer",
         id: c.id,
         code: c.ma_may || c.code,
-        label: `${c.ma_may || c.code} - ${c.ten_may || c.name || ""}`,
+        label: formatLabelParts([c.ma_may || c.code, c.ten_may || c.name]),
         data: c,
       })),
       ...roomEquipments.map((e) => ({
         type: "equipment",
         id: e.id,
         code: `eq-${e.id}`,
-        label: `${e.ten_thiet_bi || e.name} - ${e.so_luong || e.quantity || ""} ${e.don_vi || e.unit || ""}`,
+        label: formatLabelParts([
+          e.ten_thiet_bi || e.name,
+          [e.so_luong || e.quantity, e.don_vi || e.unit].filter(Boolean).join(" "),
+        ]),
         data: e,
       })),
     ];
@@ -141,7 +146,10 @@ export default function IncidentForm({
               <option value="">Chọn phòng máy</option>
               {rooms.map((room) => (
                 <option key={room.id} value={room.id}>
-                  {room.ten_phong || room.name} - {room.mo_ta || room.location || ""}
+                  {formatLabelParts([
+                    room.ten_phong || room.name,
+                    room.mo_ta || room.location,
+                  ])}
                 </option>
               ))}
             </select>

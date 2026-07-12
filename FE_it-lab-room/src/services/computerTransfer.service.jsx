@@ -3,8 +3,11 @@ import { CONST_METHODS } from "../constants/methods.constant";
 import { fetcher } from "../helpers/fetcher.helper";
 
 // Lấy danh sách lịch sử điều chuyển máy tính
-export function getComputerTransfers() {
-  return fetcher(CONST_APIS.COMPUTER_TRANSFERS.INDEX, {
+export function getComputerTransfers(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  const url = query ? `${CONST_APIS.COMPUTER_TRANSFERS.INDEX}?${query}` : CONST_APIS.COMPUTER_TRANSFERS.INDEX;
+
+  return fetcher(url, {
     method: CONST_METHODS.GET,
   });
 }

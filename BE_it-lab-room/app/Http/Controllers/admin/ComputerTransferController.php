@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ComputerTransferRequest;
 use App\Http\Resources\ComputerTransferHistoryResource;
 use App\Models\Computer;
+use App\Models\ComputerTransferDetail;
 use App\Models\ComputerTransferHistory;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -16,15 +18,14 @@ class ComputerTransferController extends Controller
 {
     /**
      * Lấy danh sách lịch sử điều chuyển máy tính.
-     * Load computers thủ công từ may_tinh_ids (JSON) bằng 1 query tránh N+1.
+     * Load chi tiết máy tính để tránh N+1 khi hiển thị lịch sử.
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
             $transfers = ComputerTransferHistory::query()
                 ->select([
                     'id',
-                    'may_tinh_ids',
                     'ma_phong_cu',
                     'ma_phong_moi',
                     'ma_nguoi_dieu_chuyen',
@@ -37,30 +38,17 @@ class ComputerTransferController extends Controller
                     'oldRoom:id,ma_phong,ten_phong',
                     'newRoom:id,ma_phong,ten_phong',
                     'transferredBy:id,ho_ten',
+                    'details:id,ma_lich_su_dieu_chuyen,ma_may_tinh',
+                    'details.computer:id,ma_may,ten_may',
                 ])
+                // Lọc lịch sử theo một máy cụ thể khi xem từ trang chi tiết máy.
+                ->when($request->filled('computer_id'), function ($query) use ($request) {
+                    $query->whereHas('details', function ($detailQuery) use ($request) {
+                        $detailQuery->where('ma_may_tinh', (int) $request->query('computer_id'));
+                    });
+                })
                 ->latest('id')
                 ->get();
-
-            // Thu thập tất cả computer IDs từ các bản ghi, load 1 lần tránh N+1
-            $allComputerIds = $transfers->pluck('may_tinh_ids')
-                ->flatten()
-                ->unique()
-                ->values()
-                ->toArray();
-
-            $computersMap = Computer::whereIn('id', $allComputerIds)
-                ->select('id', 'ma_may', 'ten_may')
-                ->get()
-                ->keyBy('id');
-
-            // Gắn danh sách computers vào từng bản ghi qua setRelation
-            $transfers->each(function ($transfer) use ($computersMap) {
-                $computers = collect($transfer->may_tinh_ids ?? [])
-                    ->map(fn($id) => $computersMap->get($id))
-                    ->filter()
-                    ->values();
-                $transfer->setRelation('computers', $computers);
-            });
 
             return response()->json([
                 'status'     => true,
@@ -101,9 +89,8 @@ class ComputerTransferController extends Controller
                     'ma_phong' => $data['ma_phong_moi'],
                 ]);
 
-                // Ghi log lịch sử điều chuyển (1 bản ghi duy nhất chứa mảng may_tinh_ids)
+                // Ghi log lịch sử điều chuyển, danh sách máy được lưu ở bảng chi tiết.
                 $transfer = ComputerTransferHistory::create([
-                    'may_tinh_ids'          => $data['may_tinh_ids'],
                     'ma_phong_cu'           => $maPhongCu,
                     'ma_phong_moi'          => $data['ma_phong_moi'],
                     'ma_nguoi_dieu_chuyen'  => Auth::id(),
@@ -112,18 +99,23 @@ class ComputerTransferController extends Controller
                     'ghi_chu'               => $data['ghi_chu'] ?? null,
                 ]);
 
+                // Lưu từng máy vào bảng chi tiết để truy vấn lịch sử theo máy chính xác.
+                foreach ($data['may_tinh_ids'] as $computerId) {
+                    ComputerTransferDetail::create([
+                        'ma_lich_su_dieu_chuyen' => $transfer->id,
+                        'ma_may_tinh' => $computerId,
+                        'ghi_chu' => $data['ghi_chu'] ?? null,
+                    ]);
+                }
+
                 // Load quan hệ Eloquent chuẩn
                 $transfer->load([
                     'oldRoom:id,ma_phong,ten_phong',
                     'newRoom:id,ma_phong,ten_phong',
                     'transferredBy:id,ho_ten',
+                    'details:id,ma_lich_su_dieu_chuyen,ma_may_tinh',
+                    'details.computer:id,ma_may,ten_may',
                 ]);
-
-                // Gắn thủ công danh sách computers (không phải Eloquent relationship)
-                $transferComputers = Computer::whereIn('id', $data['may_tinh_ids'])
-                    ->select('id', 'ma_may', 'ten_may')
-                    ->get();
-                $transfer->setRelation('computers', $transferComputers);
 
                 return $transfer;
             });

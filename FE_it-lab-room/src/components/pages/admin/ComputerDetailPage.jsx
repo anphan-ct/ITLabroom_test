@@ -2,12 +2,19 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Printer } from "lucide-react";
 import AppShell from "../../common/AppShell";
+import DataTable from "../../common/DataTable";
 import SectionCard from "../../common/SectionCard";
 import StatusBadge from "../../common/StatusBadge";
 import {
   getComputerFromApi,
   getComputerQrImageUrl,
 } from "../../../services/computer.service";
+import { getComputerTransfers } from "../../../services/computerTransfer.service";
+import { getRepairLogs } from "../../../services/repairLog.service";
+import { loanRequestService } from "../../../services/loanRequest.service";
+import { returnRequestService } from "../../../services/returnRequest.service";
+import { REPAIR_RESULT_LABELS } from "../../../constants/incident.constant";
+import { formatDateTimeDisplay } from "../../../helpers/date-display.helper";
 
 function getStatusLabel(status) {
   const statusLabels = {
@@ -49,18 +56,121 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function getRoomLabel(room) {
+  if (!room) {
+    return "-";
+  }
+
+  return [room.ma_phong, room.ten_phong].filter(Boolean).join(" - ") || "-";
+}
+
+function HistoryButton({ active, children, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center rounded-lg border px-4 py-2 text-sm font-semibold transition ${
+        active
+          ? "border-blue-600 bg-blue-600 text-white"
+          : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-700"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function getPaginatorItems(response) {
+  if (Array.isArray(response?.data)) {
+    return response.data;
+  }
+
+  if (Array.isArray(response?.data?.data)) {
+    return response.data.data;
+  }
+
+  return [];
+}
+
+function buildLoanReturnHistories(loanItems, returnItems, computerId) {
+  const normalizedComputerId = Number(computerId);
+  const histories = [];
+
+  loanItems.forEach((loan) => {
+    (loan.details || [])
+      .filter((detail) => Number(detail.ma_may_tinh) === normalizedComputerId)
+      .forEach((detail) => {
+        histories.push({
+          id: `loan-${loan.id}-${detail.id}`,
+          type: "Mượn",
+          code: loan.ma_phieu_muon || `#${loan.id}`,
+          person: loan.nguoi_muon || loan.ten_giang_vien || "-",
+          time: loan.ngay_muon,
+          status: loan.trang_thai,
+          condition: detail.tinh_trang_khi_muon,
+          returnStatus: detail.trang_thai_tra,
+          note: detail.ghi_chu || loan.ly_do_muon || "",
+        });
+      });
+  });
+
+  returnItems.forEach((returnRequest) => {
+    (returnRequest.details || [])
+      .filter((detail) => Number(detail.ma_may_tinh) === normalizedComputerId)
+      .forEach((detail) => {
+        histories.push({
+          id: `return-${returnRequest.id}-${detail.id}`,
+          type: "Trả",
+          code: returnRequest.ma_phieu_tra || `#${returnRequest.id}`,
+          person: returnRequest.nguoi_muon || returnRequest.ten_giang_vien || "-",
+          time: returnRequest.thoi_gian_tra,
+          status: returnRequest.trang_thai,
+          condition: detail.tinh_trang_khi_tra,
+          returnStatus: "",
+          note: detail.ghi_chu || returnRequest.ghi_chu || "",
+        });
+      });
+  });
+
+  return histories.sort((a, b) => String(b.time || "").localeCompare(String(a.time || "")));
+}
+
 export default function ComputerDetailPage() {
   const { computerId } = useParams();
   const [computer, setComputer] = useState(null);
+  const [activeHistory, setActiveHistory] = useState("");
+  const [transferHistories, setTransferHistories] = useState([]);
+  const [repairHistories, setRepairHistories] = useState([]);
+  const [loanReturnHistories, setLoanReturnHistories] = useState([]);
   const [error, setError] = useState("");
+  const [historyError, setHistoryError] = useState("");
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
+    const normalizedComputerId = Number(computerId);
 
-    getComputerFromApi(computerId)
-      .then((response) => {
+    setError("");
+    setHistoryError("");
+    setActiveHistory("");
+    setTransferHistories([]);
+    setRepairHistories([]);
+    setLoanReturnHistories([]);
+
+    if (!computerId || Number.isNaN(normalizedComputerId)) {
+      if (isMounted) {
+        setComputer(null);
+        setError("Không xác định được mã máy tính.");
+      }
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    getComputerFromApi(normalizedComputerId)
+      .then((computerResponse) => {
         if (isMounted) {
-          setComputer(response.data);
+          setComputer(computerResponse.data);
         }
       })
       .catch((apiError) => {
@@ -73,6 +183,67 @@ export default function ComputerDetailPage() {
       isMounted = false;
     };
   }, [computerId]);
+
+  const loadHistory = (historyType) => {
+    const normalizedComputerId = Number(computerId);
+
+    setActiveHistory(historyType);
+    setHistoryError("");
+
+    if (!computerId || Number.isNaN(normalizedComputerId)) {
+      setHistoryError("Không xác định được mã máy tính.");
+      return;
+    }
+
+    if (historyType === "transfer" && transferHistories.length > 0) {
+      return;
+    }
+
+    if (historyType === "repair" && repairHistories.length > 0) {
+      return;
+    }
+
+    if (historyType === "loan-return" && loanReturnHistories.length > 0) {
+      return;
+    }
+
+    setIsHistoryLoading(true);
+
+    const request = historyType === "transfer"
+      ? getComputerTransfers({ computer_id: normalizedComputerId })
+      : historyType === "repair"
+        ? getRepairLogs({ ma_may_tinh: normalizedComputerId })
+        : Promise.all([
+            loanRequestService.getAdminLoanRequests("all", 1, { ma_may_tinh: normalizedComputerId }),
+            returnRequestService.getAdminReturnRequests("all", 1, { ma_may_tinh: normalizedComputerId }),
+          ]);
+
+    request
+      .then((response) => {
+        if (historyType === "transfer") {
+          setTransferHistories(response.data || []);
+          return;
+        }
+
+        if (historyType === "loan-return") {
+          const [loanResponse, returnResponse] = response;
+          setLoanReturnHistories(buildLoanReturnHistories(
+            getPaginatorItems(loanResponse),
+            getPaginatorItems(returnResponse),
+            normalizedComputerId
+          ));
+          return;
+        }
+
+        setRepairHistories(response.data || []);
+      })
+      .catch((apiError) => {
+        setHistoryError(apiError.message || "Không thể tải lịch sử của máy tính.");
+      })
+      .finally(() => {
+        setIsHistoryLoading(false);
+      });
+  };
 
   const handlePrintQrCode = () => {
     if (!computer?.ma_qr) {
@@ -191,13 +362,36 @@ export default function ComputerDetailPage() {
       subtitle="Thông tin định danh, phòng máy và cấu hình thiết bị"
     >
       <div className="space-y-6">
-        <Link
-          to="/admin/computers"
-          className="inline-flex w-fit items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700"
-        >
-          <ArrowLeft size={16} />
-          Quay lại danh sách máy
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            to="/admin/computers"
+            className="inline-flex w-fit items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700"
+          >
+            <ArrowLeft size={16} />
+            Quay lại danh sách máy
+          </Link>
+
+          <HistoryButton
+            active={activeHistory === "transfer"}
+            onClick={() => loadHistory("transfer")}
+          >
+            Lịch sử điều chuyển
+          </HistoryButton>
+
+          <HistoryButton
+            active={activeHistory === "repair"}
+            onClick={() => loadHistory("repair")}
+          >
+            Lịch sử sửa chữa
+          </HistoryButton>
+
+          <HistoryButton
+            active={activeHistory === "loan-return"}
+            onClick={() => loadHistory("loan-return")}
+          >
+            Lịch sử mượn trả
+          </HistoryButton>
+        </div>
 
         {error && (
           <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
@@ -272,6 +466,109 @@ export default function ComputerDetailPage() {
                 <SpecItem label="SSD" value={computer.ssd} />
               </div>
             </SectionCard>
+
+            {historyError && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+                {historyError}
+              </div>
+            )}
+
+            {activeHistory === "transfer" && (
+              <SectionCard title="Lịch sử điều chuyển">
+                <DataTable
+                  columns={[
+                    {
+                      key: "phong_cu",
+                      title: "Phòng cũ",
+                      render: (value) => getRoomLabel(value),
+                    },
+                    {
+                      key: "phong_moi",
+                      title: "Phòng mới",
+                      render: (value) => getRoomLabel(value),
+                    },
+                    {
+                      key: "nguoi_dieu_chuyen",
+                      title: "Người điều chuyển",
+                      render: (value) => value?.ho_ten || "-",
+                    },
+                    {
+                      key: "thoi_gian_dieu_chuyen",
+                      title: "Thời gian",
+                      render: (value) => formatDateTimeDisplay(value, false),
+                    },
+                    { key: "ly_do", title: "Lý do", render: (value) => value || "-" },
+                    { key: "ghi_chu", title: "Ghi chú", render: (value) => value || "-" },
+                  ]}
+                  data={transferHistories}
+                  emptyText={isHistoryLoading ? "Đang tải lịch sử điều chuyển..." : "Chưa có lịch sử điều chuyển"}
+                />
+              </SectionCard>
+            )}
+
+            {activeHistory === "repair" && (
+              <SectionCard title="Lịch sử sửa chữa">
+                <DataTable
+                  columns={[
+                    {
+                      key: "ma_phieu_bao_tri",
+                      title: "Phiếu BT",
+                      render: (value) => (value ? `#${value}` : "-"),
+                    },
+                    {
+                      key: "thoi_gian_sua",
+                      title: "Thời gian sửa",
+                      render: (value) => formatDateTimeDisplay(value, false),
+                    },
+                    { key: "noi_dung_sua", title: "Nội dung sửa", render: (value) => value || "-" },
+                    {
+                      key: "ket_qua",
+                      title: "Kết quả",
+                      render: (value) => <StatusBadge value={REPAIR_RESULT_LABELS[value] || value || "-"} />,
+                    },
+                    {
+                      key: "chi_phi",
+                      title: "Chi phí",
+                      render: (value) => Number(value || 0).toLocaleString("vi-VN"),
+                    },
+                    {
+                      key: "nguoi_sua",
+                      title: "Người sửa",
+                      render: (value) => value?.ho_ten || "-",
+                    },
+                  ]}
+                  data={repairHistories}
+                  emptyText={isHistoryLoading ? "Đang tải lịch sử sửa chữa..." : "Chưa có lịch sử sửa chữa"}
+                />
+              </SectionCard>
+            )}
+
+            {activeHistory === "loan-return" && (
+              <SectionCard title="Lịch sử mượn trả">
+                <DataTable
+                  columns={[
+                    { key: "type", title: "Loại" },
+                    { key: "code", title: "Mã phiếu" },
+                    { key: "person", title: "Người mượn" },
+                    {
+                      key: "time",
+                      title: "Thời gian",
+                      render: (value) => formatDateTimeDisplay(value, false),
+                    },
+                    {
+                      key: "status",
+                      title: "Trạng thái phiếu",
+                      render: (value) => <StatusBadge value={value || "-"} />,
+                    },
+                    { key: "condition", title: "Tình trạng máy", render: (value) => getStatusLabel(value) || value || "-" },
+                    { key: "returnStatus", title: "Trạng thái trả", render: (value) => value || "-" },
+                    { key: "note", title: "Ghi chú", render: (value) => value || "-" },
+                  ]}
+                  data={loanReturnHistories}
+                  emptyText={isHistoryLoading ? "Đang tải lịch sử mượn trả..." : "Chưa có lịch sử mượn trả"}
+                />
+              </SectionCard>
+            )}
           </>
         )}
       </div>

@@ -34,5 +34,5 @@ class Computer extends Model
     public function room(): BelongsTo { return $this->belongsTo(Room::class, 'ma_phong'); }
     public function incidentReports(): HasMany { return $this->hasMany(IncidentReport::class, 'ma_may_tinh'); }
     public function attendanceRecords(): HasMany { return $this->hasMany(Attendance::class, 'ma_may_tinh'); }
-    public function transferHistories(): HasMany { return $this->hasMany(ComputerTransferHistory::class, 'ma_may_tinh'); }
+    public function transferDetails(): HasMany { return $this->hasMany(ComputerTransferDetail::class, 'ma_may_tinh'); }
 }

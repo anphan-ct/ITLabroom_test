@@ -10,6 +10,7 @@ export function getRepairLogs(params = {}) {
   if (params.page) queryParts.push(`page=${params.page}`);
   if (params.search) queryParts.push(`search=${encodeURIComponent(params.search)}`);
   if (params.ma_phieu_bao_tri) queryParts.push(`ma_phieu_bao_tri=${params.ma_phieu_bao_tri}`);
+  if (params.ma_may_tinh) queryParts.push(`ma_may_tinh=${params.ma_may_tinh}`);
 
   const queryString = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
 
@@ -17,5 +18,4 @@ export function getRepairLogs(params = {}) {
     method: CONST_METHODS.GET,
   });
 }
-
 

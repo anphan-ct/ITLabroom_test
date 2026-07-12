@@ -88,10 +88,6 @@ class AttendanceController extends Controller
                 return $this->response(false, 'Máy tính không thuộc phòng học của lịch này', 422, '', 422);
             }
 
-            if ($computer->trang_thai !== 'active') {
-                return $this->response(false, 'Máy tính hiện không ở trạng thái hoạt động', 422, '', 422);
-            }
-
             $attendance = DB::transaction(function () use ($student, $computer, $computerLabSchedule) {
                 $existingAttendance = Attendance::query()
                     ->where('ma_lich_su_dung', $computerLabSchedule->id)
@@ -182,7 +178,6 @@ class AttendanceController extends Controller
             ])
             ->with('room:id,ma_phong,ten_phong')
             ->where('ma_phong', $schedule->ma_phong)
-            ->where('trang_thai', 'active')
             ->orderBy('ma_may')
             ->get();
     }

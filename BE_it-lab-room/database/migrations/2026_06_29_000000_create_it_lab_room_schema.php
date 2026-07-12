@@ -194,7 +194,6 @@ CREATE TABLE `giang_vien` (
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `lich_su_dieu_chuyen_may` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `may_tinh_ids` json NOT NULL,
   `ma_phong_cu` bigint unsigned DEFAULT NULL,
   `ma_phong_moi` bigint unsigned DEFAULT NULL,
   `ma_nguoi_dieu_chuyen` bigint unsigned DEFAULT NULL,
@@ -316,6 +315,22 @@ CREATE TABLE `may_tinh` (
   UNIQUE KEY `ma_qr` (`ma_qr`),
   CONSTRAINT `may_tinh_ibfk_1` FOREIGN KEY (`ma_phong`) REFERENCES `phong_may` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB AUTO_INCREMENT=60 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `chi_tiet_dieu_chuyen_may` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `ma_lich_su_dieu_chuyen` bigint unsigned NOT NULL,
+  `ma_may_tinh` bigint unsigned NOT NULL,
+  `ghi_chu` text COLLATE utf8mb4_unicode_ci,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `chi_tiet_dieu_chuyen_unique` (`ma_lich_su_dieu_chuyen`,`ma_may_tinh`),
+  KEY `ma_may_tinh` (`ma_may_tinh`),
+  CONSTRAINT `chi_tiet_dieu_chuyen_may_ibfk_1` FOREIGN KEY (`ma_lich_su_dieu_chuyen`) REFERENCES `lich_su_dieu_chuyen_may` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `chi_tiet_dieu_chuyen_may_ibfk_2` FOREIGN KEY (`ma_may_tinh`) REFERENCES `may_tinh` (`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -490,7 +505,6 @@ CREATE TABLE `phieu_tra_may` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `ma_phieu_tra` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `ma_phieu_muon` bigint unsigned DEFAULT NULL,
-  `ma_giang_vien` bigint unsigned DEFAULT NULL,
   `thoi_gian_tra` datetime DEFAULT NULL,
   `so_luong` int unsigned NOT NULL DEFAULT '0',
   `ghi_chu` text COLLATE utf8mb4_unicode_ci,
@@ -499,9 +513,7 @@ CREATE TABLE `phieu_tra_may` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `ma_phieu_tra` (`ma_phieu_tra`),
   KEY `ma_phieu_muon` (`ma_phieu_muon`),
-  KEY `ma_giang_vien` (`ma_giang_vien`),
-  CONSTRAINT `phieu_tra_may_ibfk_1` FOREIGN KEY (`ma_phieu_muon`) REFERENCES `phieu_muon_may` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `phieu_tra_may_ibfk_2` FOREIGN KEY (`ma_giang_vien`) REFERENCES `giang_vien` (`id`) ON DELETE SET NULL
+  CONSTRAINT `phieu_tra_may_ibfk_1` FOREIGN KEY (`ma_phieu_muon`) REFERENCES `phieu_muon_may` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -610,6 +622,7 @@ SQL);
         DB::unprepared(<<<'SQL'
 SET FOREIGN_KEY_CHECKS=0;
 DROP TABLE IF EXISTS `bao_cao_su_co`;
+DROP TABLE IF EXISTS `chi_tiet_dieu_chuyen_may`;
 DROP TABLE IF EXISTS `chi_tiet_lop_hoc_phan`;
 DROP TABLE IF EXISTS `chi_tiet_phieu_muon_may`;
 DROP TABLE IF EXISTS `chi_tiet_phieu_nhap_may`;

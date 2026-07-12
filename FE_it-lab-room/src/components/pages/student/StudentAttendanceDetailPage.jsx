@@ -220,10 +220,6 @@ export default function StudentAttendanceDetailPage() {
       state: {
         roomId: selectedComputer.ma_phong ? String(selectedComputer.ma_phong) : "",
         computerCode,
-        title: `Báo hỏng máy ${computerCode}`.trim(),
-        incidentType: "phan_cung",
-        severity: "cao",
-        description: `Sinh viên báo hỏng khi chọn máy điểm danh. Lịch học: ${schedule?.subject || "-"}, phòng ${schedule?.room || "-"}.`,
       },
     });
   };

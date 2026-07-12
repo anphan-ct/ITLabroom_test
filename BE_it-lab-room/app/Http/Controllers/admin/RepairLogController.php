@@ -42,6 +42,11 @@ class RepairLogController extends Controller
                 $query->where('ma_phieu_bao_tri', (int) $request->input('ma_phieu_bao_tri'));
             }
 
+            // Lọc nhật ký sửa chữa theo máy tính khi mở trang chi tiết máy.
+            if ($request->filled('ma_may_tinh')) {
+                $query->where('ma_may_tinh', (int) $request->input('ma_may_tinh'));
+            }
+
             // Tìm kiếm theo nội dung sửa
             if ($request->filled('search')) {
                 $keyword = trim($request->input('search'));
