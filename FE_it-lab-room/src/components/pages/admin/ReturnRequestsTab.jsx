@@ -19,7 +19,7 @@ const COMPUTER_STATUS_MAP = {
   borrowed: "Đang mượn",
 };
 
-function ReturnConfirmationModal({ request, onClose, onSubmit }) {
+function ReturnConfirmationModal({ request, onClose, onSubmit, isSubmitting = false }) {
   const [conditions, setConditions] = useState({});
   const [notes, setNotes] = useState({});
 
@@ -106,7 +106,7 @@ function ReturnConfirmationModal({ request, onClose, onSubmit }) {
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleSelect(c.id)}
-                        disabled={!isSelected && selectedIds.length >= requiredCount}
+                        disabled={isSubmitting || (!isSelected && selectedIds.length >= requiredCount)}
                         className="h-4 w-4 rounded border-slate-300 text-blue-600"
                       />
                     </td>
@@ -150,15 +150,15 @@ function ReturnConfirmationModal({ request, onClose, onSubmit }) {
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
-          <button onClick={onClose} className="rounded-lg bg-slate-100 px-4 py-2 font-medium text-slate-700 hover:bg-slate-200">
+          <button onClick={onClose} disabled={isSubmitting} className="rounded-lg bg-slate-100 px-4 py-2 font-medium text-slate-700 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50">
             Hủy
           </button>
           <button
             onClick={handleSubmit}
-            disabled={selectedIds.length !== requiredCount}
+            disabled={selectedIds.length !== requiredCount || isSubmitting}
             className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            Xác nhận trả máy
+            {isSubmitting ? "Đang xử lý..." : "Xác nhận trả máy"}
           </button>
         </div>
       </div>
@@ -263,6 +263,7 @@ export default function ReturnRequestsTab() {
   const [confirmingRequest, setConfirmingRequest] = useState(null);
   const [editingReceipt, setEditingReceipt] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -335,12 +336,15 @@ export default function ReturnRequestsTab() {
     try {
       setPageError("");
       setPageSuccess("");
+      setIsConfirming(true);
       await returnRequestService.confirmReturnRequest(requestId, action, machineConditions);
       setPageSuccess(action === "confirm" ? "Trả máy thành công!" : "Đã chuyển trạng thái.");
       setConfirmingRequest(null);
       fetchData(); // reload
     } catch (error) {
       setPageError(error.message || "Đã xảy ra lỗi.");
+    } finally {
+      setIsConfirming(false);
     }
   };
 
@@ -473,6 +477,7 @@ export default function ReturnRequestsTab() {
             request={confirmingRequest}
             onClose={() => setConfirmingRequest(null)}
             onSubmit={handleAction}
+            isSubmitting={isConfirming}
           />
         )}
 

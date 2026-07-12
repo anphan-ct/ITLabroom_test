@@ -70,12 +70,14 @@ export default function ComputerTransfersPage() {
   const [computers, setComputers] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [transfers, setTransfers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // State form và trạng thái submit
   const [form, setForm] = useState(defaultForm);
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
+  const [capacityWarning, setCapacityWarning] = useState(null);
 
   // Load dữ liệu ban đầu từ API khi component mount
   useEffect(() => {
@@ -96,6 +98,11 @@ export default function ComputerTransfersPage() {
       .catch(() => {
         if (isMounted) {
           setFormError("Không thể tải dữ liệu từ cơ sở dữ liệu.");
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
         }
       });
 
@@ -189,7 +196,16 @@ export default function ComputerTransfersPage() {
         ma_phong_moi: Number(form.ma_phong_moi),
         ly_do: form.ly_do.trim(),
         ghi_chu: form.ghi_chu.trim() || null,
+        xac_nhan_vuot_suc_chua: false,
       });
+
+      if (response.status === false) {
+        if (response.error_code === 4090 && response.data?.needs_confirmation) {
+          setCapacityWarning({ message: response.message, ...response.data });
+          return;
+        }
+        throw new Error(response.message || "Không thể thực hiện điều chuyển.");
+      }
 
       // Thành công: thêm bản ghi mới vào đầu danh sách
       const newTransfer = mapTransferItem(response.data);
@@ -213,6 +229,45 @@ export default function ComputerTransfersPage() {
       setFormError(getApiErrorMessage(apiError));
     } finally {
       // Tắt loading state
+      setIsSubmitting(false);
+    }
+  };
+
+  const confirmTransfer = async () => {
+    setCapacityWarning(null);
+    setIsSubmitting(true);
+    setFormError("");
+
+    try {
+      const response = await transferComputer({
+        may_tinh_ids: form.may_tinh_ids.map(Number),
+        ma_phong_moi: Number(form.ma_phong_moi),
+        ly_do: form.ly_do.trim(),
+        ghi_chu: form.ghi_chu.trim() || null,
+        xac_nhan_vuot_suc_chua: true,
+      });
+
+      if (response.status === false) {
+        throw new Error(response.message || "Không thể thực hiện điều chuyển.");
+      }
+
+      const newTransfer = mapTransferItem(response.data);
+      setTransfers((currentTransfers) => [newTransfer, ...currentTransfers]);
+
+      const transferredIds = form.may_tinh_ids;
+      setComputers((currentComputers) =>
+        currentComputers.map((computer) =>
+          transferredIds.includes(computer.id)
+            ? { ...computer, ma_phong: Number(form.ma_phong_moi) }
+            : computer
+        )
+      );
+
+      setForm({ ...defaultForm });
+      setFormError("");
+    } catch (apiError) {
+      setFormError(getApiErrorMessage(apiError));
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -356,6 +411,30 @@ export default function ComputerTransfersPage() {
               />
             </Field>
 
+            {/* Cảnh báo vượt sức chứa */}
+            {capacityWarning && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <h4 className="font-semibold text-amber-800 mb-1">Cảnh báo vượt sức chứa</h4>
+                <p className="text-sm text-amber-700 mb-3">{capacityWarning.message}</p>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setCapacityWarning(null)}
+                    className="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-slate-700 border border-slate-200 hover:bg-slate-50 transition-colors"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmTransfer}
+                    className="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700 transition-colors"
+                  >
+                    Vẫn tiếp tục
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Hiển thị lỗi nếu có */}
             {formError && (
               <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
@@ -423,6 +502,7 @@ export default function ComputerTransfersPage() {
               { key: "note", title: "Ghi chú" },
             ]}
             data={filteredTransfers}
+            isLoading={isLoading}
             emptyText="Chưa có lịch sử điều chuyển"
           />
         </SectionCard>
