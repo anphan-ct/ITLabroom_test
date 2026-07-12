@@ -227,6 +227,7 @@ Route::middleware(['auth:sanctum', 'abilities:admin'])->group(function () {
         Route::post('/', [AdminLoanRequestController::class, 'store']);
         Route::put('/{loanRequest}', [AdminLoanRequestController::class, 'update']);
         Route::patch('/{loanRequest}/assign-computers', [AdminLoanRequestController::class, 'assignComputers']);
+        Route::delete('/{loanRequest}', [AdminLoanRequestController::class, 'destroy']);
     });
 
     // Nhóm API xác nhận phiếu trả máy.
@@ -235,5 +236,6 @@ Route::middleware(['auth:sanctum', 'abilities:admin'])->group(function () {
         Route::post('/', [AdminReturnRequestController::class, 'store']);
         Route::put('/{returnRequest}', [AdminReturnRequestController::class, 'update']);
         Route::patch('/{returnRequest}/confirmation', [AdminReturnRequestController::class, 'confirm']);
+        Route::delete('/{returnRequest}', [AdminReturnRequestController::class, 'destroy']);
     });
 });

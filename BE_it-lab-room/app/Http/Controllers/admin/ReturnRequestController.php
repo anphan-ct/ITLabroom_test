@@ -29,16 +29,20 @@ class ReturnRequestController extends Controller
                 $query->where('trang_thai', $status);
             }
 
-            $requests = $query->orderBy('created_at', 'desc')->paginate(15);
-            $requests->getCollection()->transform(function ($item) {
-                return new ReturnRequestResource($item);
-            });
+            $perPage = min((int) $request->query('per_page', 15), 200);
+            $requests = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
             return response()->json([
                 'status' => true,
                 'message' => 'Lấy danh sách phiếu trả thành công',
                 'error_code' => 0,
-                'data' => $requests
+                'data' => ReturnRequestResource::collection($requests),
+                'pagination' => [
+                    'current_page' => $requests->currentPage(),
+                    'last_page'    => $requests->lastPage(),
+                    'per_page'     => $requests->perPage(),
+                    'total'        => $requests->total(),
+                ]
             ], 200);
         } catch (Throwable $e) {
             return response()->json([
@@ -203,6 +207,35 @@ class ReturnRequestController extends Controller
             ], 200);
         } catch (Throwable $e) {
             DB::rollBack();
+            return response()->json([
+                'status' => false,
+                'message' => 'Lỗi hệ thống: ' . $e->getMessage(),
+                'error_code' => 500,
+                'data' => null
+            ], 500);
+        }
+    }
+    public function destroy(ReturnRequest $returnRequest)
+    {
+        try {
+            if ($returnRequest->trang_thai === ReturnRequestStatus::CONFIRMED->value) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Phiếu trả đã được xác nhận, không thể xóa.',
+                    'error_code' => 400,
+                    'data' => null
+                ], 400);
+            }
+
+            $returnRequest->delete();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Xóa phiếu trả thành công',
+                'error_code' => 0,
+                'data' => null
+            ], 200);
+        } catch (Throwable $e) {
             return response()->json([
                 'status' => false,
                 'message' => 'Lỗi hệ thống: ' . $e->getMessage(),

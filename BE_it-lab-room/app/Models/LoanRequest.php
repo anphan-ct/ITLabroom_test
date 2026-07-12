@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Collection;
 
 class LoanRequest extends Model
 {
@@ -27,23 +28,38 @@ class LoanRequest extends Model
         'so_luong' => 'integer',
     ];
 
-    public function department(): BelongsTo { return $this->belongsTo(Department::class, 'ma_phong_ban'); }
-    public function details() { return $this->hasMany(LoanRequestDetail::class, 'ma_phieu_muon'); }
-    public function returnRequests() { return $this->hasMany(ReturnRequest::class, 'ma_phieu_muon'); }
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class, 'ma_phong_ban');
+    }
+    public function details()
+    {
+        return $this->hasMany(LoanRequestDetail::class, 'ma_phieu_muon');
+    }
+    public function returnRequests()
+    {
+        return $this->hasMany(ReturnRequest::class, 'ma_phieu_muon');
+    }
+
+    protected ?Collection $returnedComputerIdsCache = null;
 
     public function getReturnedComputerIds()
     {
-        return \App\Models\ReturnRequestDetail::whereIn('ma_phieu_tra', function ($q) {
-            $q->select('id')->from('phieu_tra_may')
-              ->where('ma_phieu_muon', $this->id)
-              ->where('trang_thai', \App\Enums\ReturnRequestStatus::CONFIRMED->value);
-        })->pluck('ma_may_tinh');
+        if ($this->returnedComputerIdsCache === null) {
+            $this->returnedComputerIdsCache = \App\Models\ReturnRequestDetail::whereIn('ma_phieu_tra', function ($q) {
+                $q->select('id')->from('phieu_tra_may')
+                    ->where('ma_phieu_muon', $this->id)
+                    ->where('trang_thai', \App\Enums\ReturnRequestStatus::CONFIRMED->value);
+            })->pluck('ma_may_tinh');
+        }
+
+        return $this->returnedComputerIdsCache;
     }
 
     public function getTrangThaiHienThiAttribute()
     {
-        $loanComputerIds = $this->relationLoaded('details') 
-            ? $this->details->pluck('ma_may_tinh') 
+        $loanComputerIds = $this->relationLoaded('details')
+            ? $this->details->pluck('ma_may_tinh')
             : $this->details()->pluck('ma_may_tinh');
 
         if ($loanComputerIds->isEmpty()) {
@@ -51,18 +67,18 @@ class LoanRequest extends Model
         }
 
         $returnedIds = $this->getReturnedComputerIds();
-        
+
         if ($loanComputerIds->diff($returnedIds)->isEmpty()) {
             return 'Đã trả máy';
         }
-        
+
         return 'Chưa trả máy';
     }
 
     public function getSoLuongConLaiAttribute()
     {
-        $loanComputerIds = $this->relationLoaded('details') 
-            ? $this->details->pluck('ma_may_tinh') 
+        $loanComputerIds = $this->relationLoaded('details')
+            ? $this->details->pluck('ma_may_tinh')
             : $this->details()->pluck('ma_may_tinh');
 
         $returnedIds = $this->getReturnedComputerIds();

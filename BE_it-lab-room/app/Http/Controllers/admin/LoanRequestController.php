@@ -47,16 +47,20 @@ class LoanRequestController extends Controller
                       ->whereDoesntHave('details', $notFullyReturned);
             }
 
-            $requests = $query->orderBy('created_at', 'desc')->paginate(15);
-            $requests->getCollection()->transform(function ($item) {
-                return new LoanRequestResource($item);
-            });
+            $perPage = min((int) $request->query('per_page', 15), 200);
+            $requests = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
             return response()->json([
                 'status' => true,
                 'message' => 'Lấy danh sách phiếu mượn thành công',
                 'error_code' => 0,
-                'data' => $requests
+                'data' => LoanRequestResource::collection($requests),
+                'pagination' => [
+                    'current_page' => $requests->currentPage(),
+                    'last_page'    => $requests->lastPage(),
+                    'per_page'     => $requests->perPage(),
+                    'total'        => $requests->total(),
+                ]
             ], 200);
         } catch (Throwable $e) {
             return response()->json([
@@ -199,6 +203,35 @@ class LoanRequestController extends Controller
             ], 200);
         } catch (Throwable $e) {
             DB::rollBack();
+            return response()->json([
+                'status' => false,
+                'message' => 'Lỗi hệ thống: ' . $e->getMessage(),
+                'error_code' => 500,
+                'data' => null
+            ], 500);
+        }
+    }
+    public function destroy(LoanRequest $loanRequest)
+    {
+        try {
+            if ($loanRequest->details()->exists()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Phiếu mượn đã được cấp máy, không thể xóa.',
+                    'error_code' => 400,
+                    'data' => null
+                ], 400);
+            }
+
+            $loanRequest->delete();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Xóa phiếu mượn thành công',
+                'error_code' => 0,
+                'data' => null
+            ], 200);
+        } catch (Throwable $e) {
             return response()->json([
                 'status' => false,
                 'message' => 'Lỗi hệ thống: ' . $e->getMessage(),

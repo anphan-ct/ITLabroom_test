@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
-import { CheckCircle, Search, XCircle, ListChecks, Plus, Edit2 } from "lucide-react";
+import { CheckCircle, Search, XCircle, ListChecks, Plus, Edit2, Trash2 } from "lucide-react";
 import DataTable from "../../common/DataTable";
+import Pagination from "../../common/Pagination";
 import SectionCard from "../../common/SectionCard";
 import ComputerConditionListModal from "../../common/ComputerConditionListModal";
 import { loanRequestService } from "../../../services/loanRequest.service";
@@ -308,6 +309,7 @@ export default function LoanRequestsTab() {
   const [pageSuccess, setPageSuccess] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewingRequest, setViewingRequest] = useState(null);
+  const [pagination, setPagination] = useState({ current_page: 1, last_page: 1, total: 0 });
 
   const [form, setForm] = useState({
     borrowerName: "",
@@ -345,17 +347,18 @@ export default function LoanRequestsTab() {
     return () => clearTimeout(timer);
   }, [formError]);
 
-  const fetchData = async () => {
+  const fetchData = async (page = pagination.current_page) => {
     try {
       setIsLoading(true);
       setPageError("");
       const [reqRes, roomRes, deptRes] = await Promise.all([
-        loanRequestService.getAdminLoanRequests(statusFilter, 1),
+        loanRequestService.getAdminLoanRequests(statusFilter, page),
         getRoomsFromApi({ includeStorage: true }),
         fetcher(CONST_APIS.DEPARTMENTS.INDEX, { method: CONST_METHODS.GET })
       ]);
       if (reqRes.status) {
-        setRequests(reqRes.data?.data || []);
+        setRequests(reqRes.data || []);
+        setPagination(reqRes.pagination || { current_page: 1, last_page: 1, total: 0 });
       }
       if (roomRes.status) {
         setRooms(roomRes.data || []);
@@ -371,8 +374,24 @@ export default function LoanRequestsTab() {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(1);
   }, [statusFilter]);
+
+  const handleDelete = async (request) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xoá phiếu mượn ${request.code} không? Hành động này không thể hoàn tác.`)) {
+      return;
+    }
+    
+    try {
+      setPageError("");
+      setPageSuccess("");
+      await loanRequestService.deleteAdminLoanRequest(request.id);
+      setPageSuccess(`Đã xoá phiếu mượn ${request.code} thành công.`);
+      fetchData();
+    } catch (error) {
+      setPageError(error.message || "Lỗi khi xoá phiếu mượn.");
+    }
+  };
 
   const handleAction = async (requestId, action, computerIds = [], machineConditions = []) => {
     try {
@@ -617,6 +636,14 @@ export default function LoanRequestsTab() {
                           <Edit2 size={14} />
                           Cập nhật
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(request)}
+                          className="inline-flex items-center justify-center rounded-lg bg-rose-100 p-1.5 text-rose-700 transition hover:bg-rose-200"
+                          title="Xóa phiếu"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     );
                   }
@@ -640,6 +667,11 @@ export default function LoanRequestsTab() {
             ]}
             data={filteredRequests}
             emptyText="Chưa có phiếu mượn"
+          />
+          <Pagination
+            currentPage={pagination.current_page}
+            lastPage={pagination.last_page}
+            onPageChange={(page) => fetchData(page)}
           />
         </SectionCard>
       </div>

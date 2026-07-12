@@ -3,8 +3,8 @@ import { CONST_METHODS } from "../constants/methods.constant";
 import { fetcher } from "../helpers/fetcher.helper";
 
 export const returnRequestService = {
-  getAdminReturnRequests: (trangThai = "all", page = 1) => {
-    return fetcher(`${CONST_APIS.RETURN_REQUESTS.ADMIN_INDEX}?trang_thai=${trangThai}&page=${page}`, {
+  getAdminReturnRequests: (trangThai = "all", page = 1, perPage = 15) => {
+    return fetcher(`${CONST_APIS.RETURN_REQUESTS.ADMIN_INDEX}?trang_thai=${trangThai}&page=${page}&per_page=${perPage}`, {
       method: CONST_METHODS.GET,
     });
   },
@@ -27,6 +27,11 @@ export const returnRequestService = {
     return fetcher(CONST_APIS.RETURN_REQUESTS.ADMIN_UPDATE(id), {
       method: CONST_METHODS.PUT,
       body: data,
+    });
+  },
+  deleteAdminReturnRequest: (id) => {
+    return fetcher(CONST_APIS.RETURN_REQUESTS.ADMIN_DELETE(id), {
+      method: CONST_METHODS.DELETE,
     });
   },
 };

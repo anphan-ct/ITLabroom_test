@@ -159,12 +159,14 @@ export const CONST_APIS = {
     ADMIN_APPROVAL: (id) => `/api/admin/loan-requests/${id}/assign-computers`,
     ADMIN_STORE: "/api/admin/loan-requests",
     ADMIN_UPDATE: (id) => `/api/admin/loan-requests/${id}`,
+    ADMIN_DELETE: (id) => `/api/admin/loan-requests/${id}`,
   },
   RETURN_REQUESTS: {
     ADMIN_INDEX: "/api/admin/return-requests",
     ADMIN_CONFIRMATION: (id) => `/api/admin/return-requests/${id}/confirmation`,
     ADMIN_STORE: "/api/admin/return-requests",
     ADMIN_UPDATE: (id) => `/api/admin/return-requests/${id}`,
+    ADMIN_DELETE: (id) => `/api/admin/return-requests/${id}`,
   },
 };
 

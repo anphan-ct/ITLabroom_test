@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
-import { CheckCircle, Search, Wrench, ListChecks, RotateCcw, Edit2 } from "lucide-react";
+import { CheckCircle, Search, Wrench, ListChecks, RotateCcw, Edit2, Trash2 } from "lucide-react";
 import DataTable from "../../common/DataTable";
+import Pagination from "../../common/Pagination";
 import SectionCard from "../../common/SectionCard";
 import ComputerConditionListModal from "../../common/ComputerConditionListModal";
 import { returnRequestService } from "../../../services/returnRequest.service";
@@ -268,6 +269,7 @@ export default function ReturnRequestsTab() {
   const [pageSuccess, setPageSuccess] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewingRequest, setViewingRequest] = useState(null);
+  const [pagination, setPagination] = useState({ current_page: 1, last_page: 1, total: 0 });
 
   const [form, setForm] = useState({
     loanId: "",
@@ -304,19 +306,20 @@ export default function ReturnRequestsTab() {
     return () => clearTimeout(timer);
   }, [formError]);
 
-  const fetchData = async () => {
+  const fetchData = async (page = pagination.current_page) => {
     try {
       setIsLoading(true);
       setPageError("");
       const [returnsRes, loansRes] = await Promise.all([
-        returnRequestService.getAdminReturnRequests(statusFilter, 1),
-        loanRequestService.getAdminLoanRequests("all", 1) // Fetch all to get incomplete loans
+        returnRequestService.getAdminReturnRequests(statusFilter, page),
+        loanRequestService.getAdminLoanRequests("all", 1, 200) // Fetch all to get incomplete loans
       ]);
       if (returnsRes.status) {
-        setReceipts(returnsRes.data?.data || []);
+        setReceipts(returnsRes.data || []);
+        setPagination(returnsRes.pagination || { current_page: 1, last_page: 1, total: 0 });
       }
       if (loansRes.status) {
-        const loans = loansRes.data?.data || [];
+        const loans = loansRes.data || [];
         // Only show loans that have been assigned computers and still have some to return
         setApprovedLoans(loans.filter(l => l.so_luong_con_lai > 0 && l.details?.length > 0));
         setAssignedLoans(loans.filter(l => l.details?.length > 0));
@@ -329,8 +332,24 @@ export default function ReturnRequestsTab() {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(1);
   }, [statusFilter]);
+
+  const handleDelete = async (receipt) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xoá phiếu trả ${receipt.code} không? Hành động này không thể hoàn tác.`)) {
+      return;
+    }
+    
+    try {
+      setPageError("");
+      setPageSuccess("");
+      await returnRequestService.deleteAdminReturnRequest(receipt.id);
+      setPageSuccess(`Đã xoá phiếu trả ${receipt.code} thành công.`);
+      fetchData();
+    } catch (error) {
+      setPageError(error.message || "Lỗi khi xoá phiếu trả.");
+    }
+  };
 
   const handleAction = async (requestId, action, machineConditions = []) => {
     try {
@@ -583,6 +602,14 @@ export default function ReturnRequestsTab() {
                           <Edit2 size={14} />
                           Cập nhật
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(receipt)}
+                          className="inline-flex items-center justify-center rounded-lg bg-rose-100 p-1.5 text-rose-700 transition hover:bg-rose-200"
+                          title="Xóa phiếu"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     );
                   }
@@ -606,6 +633,11 @@ export default function ReturnRequestsTab() {
             ]}
             data={filteredReceipts}
             emptyText="Chưa có phiếu trả"
+          />
+          <Pagination
+            currentPage={pagination.current_page}
+            lastPage={pagination.last_page}
+            onPageChange={(page) => fetchData(page)}
           />
         </SectionCard>
       </div>
