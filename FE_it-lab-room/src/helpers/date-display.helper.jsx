@@ -71,3 +71,18 @@ export function formatDateTimeDisplay(value, showSeconds = true) {
   const ss = String(parsed.second).padStart(2, '0');
   return `${HH}:${mm}:${ss} ${d}/${m}/${yyyy}`;
 }
+
+/**
+ * Chuyển chuỗi ISO-8601 (UTC, có hậu tố Z) từ API thành chuỗi local
+ * đúng định dạng "YYYY-MM-DDTHH:mm" để dùng làm giá trị cho
+ * <input type="datetime-local">, tự động convert theo giờ local trình duyệt.
+ * @param {string|null} isoString - Chuỗi ISO trả về từ API (VD: "2026-07-15T01:00:00.000000Z")
+ * @returns {string} Chuỗi rỗng nếu input rỗng/không hợp lệ, ngược lại trả về "YYYY-MM-DDTHH:mm"
+ */
+export const toLocalDatetimeInputValue = (isoString) => {
+  if (!isoString) return "";
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};

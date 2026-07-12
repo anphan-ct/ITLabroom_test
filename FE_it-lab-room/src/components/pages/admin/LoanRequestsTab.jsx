@@ -11,6 +11,7 @@ import { fetcher } from "../../../helpers/fetcher.helper";
 import { CONST_APIS } from "../../../constants/apis.constant";
 import { CONST_METHODS } from "../../../constants/methods.constant";
 import { Field, SelectInput, TextInput } from "./adminFormControls";
+import { toLocalDatetimeInputValue } from "../../../helpers/date-display.helper";
 
 const STATUS_MAP = {
   pending: { label: "Chờ duyệt", color: "text-amber-600 bg-amber-50" },
@@ -221,7 +222,7 @@ function EditLoanRequestModal({ request, departments, onClose, onSubmit, isSubmi
   const [form, setForm] = useState({
     borrowerName: request.nguoi_muon || request.ten_giang_vien || "",
     departmentId: request.department_id || "",
-    borrowedAt: (request.ngay_muon || "").slice(0, 16),
+    borrowedAt: toLocalDatetimeInputValue(request.ngay_muon),
     quantity: request.so_luong || "1",
     purpose: request.ly_do_muon || ""
   });

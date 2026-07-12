@@ -7,6 +7,7 @@ import ComputerConditionListModal from "../../common/ComputerConditionListModal"
 import { returnRequestService } from "../../../services/returnRequest.service";
 import { loanRequestService } from "../../../services/loanRequest.service";
 import { Field, SelectInput, TextInput } from "./adminFormControls";
+import { toLocalDatetimeInputValue } from "../../../helpers/date-display.helper";
 
 const STATUS_MAP = {
   pending: { label: "Chưa trả máy", color: "text-amber-600 bg-amber-50" },
@@ -170,7 +171,7 @@ function ReturnConfirmationModal({ request, onClose, onSubmit, isSubmitting = fa
 function EditReturnRequestModal({ request, approvedLoans, onClose, onSubmit, isSubmitting }) {
   const [form, setForm] = useState({
     loanId: request.ma_phieu_muon || "",
-    returnedAt: (request.thoi_gian_tra || "").slice(0, 16),
+    returnedAt: toLocalDatetimeInputValue(request.thoi_gian_tra),
     quantity: request.so_luong || "1",
     note: request.ghi_chu || ""
   });
@@ -202,7 +203,7 @@ function EditReturnRequestModal({ request, approvedLoans, onClose, onSubmit, isS
   };
 
   const selectedLoanForReturn = approvedLoans.find((loanReq) => String(loanReq.id) === String(form.loanId));
-  const minReturnDate = selectedLoanForReturn?.ngay_muon ? selectedLoanForReturn.ngay_muon.slice(0, 16) : undefined;
+  const minReturnDate = toLocalDatetimeInputValue(selectedLoanForReturn?.ngay_muon) || undefined;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50">
@@ -440,7 +441,7 @@ export default function ReturnRequestsTab() {
   }, [receipts, searchKeyword]);
 
   const selectedLoanForReturn = approvedLoans.find(l => String(l.id) === String(form.loanId));
-  const minReturnDate = selectedLoanForReturn?.ngay_muon ? selectedLoanForReturn.ngay_muon.slice(0, 16) : undefined;
+  const minReturnDate = toLocalDatetimeInputValue(selectedLoanForReturn?.ngay_muon) || undefined;
 
   return (
     <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
