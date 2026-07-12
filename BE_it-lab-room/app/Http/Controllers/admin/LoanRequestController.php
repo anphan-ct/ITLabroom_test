@@ -22,12 +22,29 @@ class LoanRequestController extends Controller
     public function index(Request $request)
     {
         try {
-            $status = $request->query('trang_thai', LoanRequestStatus::PENDING->value);
+            $status = $request->query('trang_thai', 'all');
 
             $query = LoanRequest::with(['department', 'details.computer']);
 
-            if ($status !== 'all') {
-                $query->where('trang_thai', $status);
+            $notFullyReturned = function ($detailQuery) {
+                $detailQuery->whereNotIn('ma_may_tinh', function ($sub) {
+                    $sub->select('chi_tiet_phieu_tra_may.ma_may_tinh')
+                        ->from('chi_tiet_phieu_tra_may')
+                        ->join('phieu_tra_may', 'chi_tiet_phieu_tra_may.ma_phieu_tra', '=', 'phieu_tra_may.id')
+                        ->whereColumn('phieu_tra_may.ma_phieu_muon', 'chi_tiet_phieu_muon_may.ma_phieu_muon')
+                        ->where('phieu_tra_may.trang_thai', \App\Enums\ReturnRequestStatus::CONFIRMED->value);
+                });
+            };
+
+            if ($status === 'chua_cap_may') {
+                $query->whereDoesntHave('details');
+            } elseif ($status === 'da_cap_may') {
+                // Có details VÀ còn ít nhất 1 máy chưa trả
+                $query->whereHas('details', $notFullyReturned);
+            } elseif ($status === 'da_tra') {
+                // Có details VÀ không còn máy nào chưa trả (tức tất cả đã trả)
+                $query->whereHas('details')
+                      ->whereDoesntHave('details', $notFullyReturned);
             }
 
             $requests = $query->orderBy('created_at', 'desc')->paginate(15);

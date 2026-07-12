@@ -17,6 +17,12 @@ const STATUS_MAP = {
   rejected: { label: "Từ chối", color: "text-rose-600 bg-rose-50" },
 };
 
+const DISPLAY_STATUS_MAP = {
+  "Chưa chuyển máy": { label: "Chưa cấp máy", color: "text-amber-600 bg-amber-50" },
+  "Chưa trả máy":    { label: "Đã cấp máy",   color: "text-blue-600 bg-blue-50" },
+  "Đã trả máy":      { label: "Đã trả",       color: "text-green-600 bg-green-50" },
+};
+
 const COMPUTER_STATUS_MAP = {
   active: "Hoạt động",
   broken: "Hư hỏng",
@@ -213,7 +219,7 @@ function AllocationModal({ request, rooms, onClose, onSubmit }) {
 function EditLoanRequestModal({ request, departments, onClose, onSubmit, isSubmitting }) {
   const [form, setForm] = useState({
     borrowerName: request.nguoi_muon || request.ten_giang_vien || "",
-    departmentId: request.ma_phong_ban || "",
+    departmentId: request.department_id || "",
     borrowedAt: (request.ngay_muon || "").slice(0, 16),
     quantity: request.so_luong || "1",
     purpose: request.ly_do_muon || ""
@@ -411,7 +417,7 @@ export default function LoanRequestsTab() {
       quantity: req.so_luong,
       borrowedAt: new Date(req.ngay_muon).toLocaleString('vi-VN'),
       reason: req.ly_do_muon,
-      statusLabel: STATUS_MAP[req.trang_thai]?.label || req.trang_thai,
+      statusLabel: DISPLAY_STATUS_MAP[req.trang_thai_hien_thi]?.label || STATUS_MAP[req.trang_thai]?.label || req.trang_thai,
     })).filter((request) => {
       const searchContent = [
         request.code, request.teacher, request.department,
@@ -508,8 +514,9 @@ export default function LoanRequestsTab() {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-600 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
               >
-                <option value="pending">Chưa cấp máy</option>
-                <option value="approved">Đã cấp máy</option>
+                <option value="chua_cap_may">Chưa cấp máy</option>
+                <option value="da_cap_may">Đã cấp máy</option>
+                <option value="da_tra">Đã trả</option>
                 <option value="all">Tất cả</option>
               </select>
               <div className="relative">
@@ -530,13 +537,26 @@ export default function LoanRequestsTab() {
             columns={[
               { key: "code", title: "Mã phiếu" },
               { key: "teacher", title: "Người mượn" },
+              { key: "department", title: "Phòng ban" },
               { key: "quantity", title: "Số lượng" },
               { key: "borrowedAt", title: "Ngày mượn" },
+              {
+                key: "reason",
+                title: "Lý do mượn",
+                render: (_, item) => (
+                  <span
+                    className="block max-w-[180px] truncate"
+                    title={item.reason || ""}
+                  >
+                    {item.reason || "—"}
+                  </span>
+                ),
+              },  
               {
                 key: "trang_thai",
                 title: "Trạng thái",
                 render: (_, item) => {
-                  const style = STATUS_MAP[item.trang_thai_hien_thi] || STATUS_MAP[item.trang_thai] || { label: item.trang_thai, color: "text-slate-600 bg-slate-50" };
+                  const style = DISPLAY_STATUS_MAP[item.trang_thai_hien_thi] || { label: item.trang_thai_hien_thi || item.trang_thai, color: "text-slate-600 bg-slate-50" };
                   return (
                     <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${style.color}`}>
                       {style.label}

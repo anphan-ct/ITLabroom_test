@@ -37,6 +37,19 @@ class ReturnRequestRequest extends FormRequest
                 $validator->errors()->add('ma_phieu_muon', 'Chỉ có thể tạo phiếu trả cho phiếu mượn đã được cấp máy.');
                 return;
             }
+
+            $thoiGianTra = $this->input('thoi_gian_tra');
+            if ($thoiGianTra && $loanRequest->ngay_muon) {
+                $ngayMuon = \Carbon\Carbon::parse($loanRequest->ngay_muon);
+                $ngayTra = \Carbon\Carbon::parse($thoiGianTra);
+                if ($ngayTra->lt($ngayMuon)) {
+                    $validator->errors()->add(
+                        'thoi_gian_tra',
+                        'Ngày trả không được sớm hơn ngày mượn (' . $ngayMuon->format('d/m/Y H:i') . ').'
+                    );
+                }
+            }
+
             $remaining = $loanRequest->so_luong_con_lai;
             $returnRequest = $this->route('returnRequest');
             if ($returnRequest && $returnRequest->ma_phieu_muon == $loanRequest->id) {

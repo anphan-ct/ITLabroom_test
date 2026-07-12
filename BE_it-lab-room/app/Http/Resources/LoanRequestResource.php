@@ -15,6 +15,7 @@ class LoanRequestResource extends JsonResource
             'nguoi_muon'      => $this->nguoi_muon,
             'ten_giang_vien'  => $this->nguoi_muon,
             'ma_phong_ban'    => $this->department?->ten_phong_ban,
+            'department_id'   => $this->department?->id,
             'ngay_muon'       => $this->ngay_muon,
             'so_luong'        => $this->so_luong,
             'so_luong_con_lai'=> $this->so_luong_con_lai,

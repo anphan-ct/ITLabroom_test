@@ -8,8 +8,8 @@ import { loanRequestService } from "../../../services/loanRequest.service";
 import { Field, SelectInput, TextInput } from "./adminFormControls";
 
 const STATUS_MAP = {
-  pending: { label: "Chưa xác nhận", color: "text-amber-600 bg-amber-50" },
-  confirmed: { label: "Đã xác nhận", color: "text-green-600 bg-green-50" },
+  pending: { label: "Chưa trả máy", color: "text-amber-600 bg-amber-50" },
+  confirmed: { label: "Đã trả máy", color: "text-green-600 bg-green-50" },
 };
 
 const COMPUTER_STATUS_MAP = {
@@ -22,13 +22,13 @@ const COMPUTER_STATUS_MAP = {
 function ReturnConfirmationModal({ request, onClose, onSubmit }) {
   const [conditions, setConditions] = useState({});
   const [notes, setNotes] = useState({});
-  
+
   const loanDetails = request.loan_request?.details || [];
   const borrowedComputers = loanDetails
     .filter(detail => !detail.da_tra)
     .map(d => d.computer)
     .filter(Boolean);
-  
+
   const requiredCount = request.quantity;
   const [selectedIds, setSelectedIds] = useState([]);
   const [error, setError] = useState("");
@@ -70,9 +70,9 @@ function ReturnConfirmationModal({ request, onClose, onSubmit }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50">
       <div className="w-full max-w-3xl rounded-xl bg-white p-6 shadow-xl max-h-[90vh] flex flex-col">
         <h3 className="mb-4 text-xl font-bold text-slate-800">
-          Xác nhận phiếu trả {request.code} (Cần {requiredCount} máy)
+          Trả máy phiếu {request.code} (Cần {requiredCount} máy)
         </h3>
-        
+
         {error && (
           <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
             {error}
@@ -80,7 +80,7 @@ function ReturnConfirmationModal({ request, onClose, onSubmit }) {
         )}
 
         <div className="mb-4 text-sm font-medium text-slate-600">
-            Đã chọn: <span className="mx-1 text-blue-600 font-bold">{selectedIds.length}</span> / {requiredCount}
+          Đã chọn: <span className="mx-1 text-blue-600 font-bold">{selectedIds.length}</span> / {requiredCount}
         </div>
 
         <div className="flex-1 overflow-auto rounded-lg border border-slate-200">
@@ -102,8 +102,8 @@ function ReturnConfirmationModal({ request, onClose, onSubmit }) {
                 return (
                   <tr key={c.id} className={isSelected ? "bg-blue-50" : "hover:bg-slate-50"}>
                     <td className="p-3">
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleSelect(c.id)}
                         disabled={!isSelected && selectedIds.length >= requiredCount}
@@ -148,17 +148,17 @@ function ReturnConfirmationModal({ request, onClose, onSubmit }) {
             </tbody>
           </table>
         </div>
-        
+
         <div className="mt-6 flex justify-end gap-3">
           <button onClick={onClose} className="rounded-lg bg-slate-100 px-4 py-2 font-medium text-slate-700 hover:bg-slate-200">
             Hủy
           </button>
-          <button 
-            onClick={handleSubmit} 
+          <button
+            onClick={handleSubmit}
             disabled={selectedIds.length !== requiredCount}
             className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            Xác nhận Trả
+            Xác nhận trả máy
           </button>
         </div>
       </div>
@@ -167,11 +167,11 @@ function ReturnConfirmationModal({ request, onClose, onSubmit }) {
 }
 
 function EditReturnRequestModal({ request, approvedLoans, onClose, onSubmit, isSubmitting }) {
-  const [form, setForm] = useState({ 
-    loanId: request.ma_phieu_muon || "", 
-    returnedAt: (request.thoi_gian_tra || "").slice(0, 16), 
-    quantity: request.so_luong || "1", 
-    note: request.ghi_chu || "" 
+  const [form, setForm] = useState({
+    loanId: request.ma_phieu_muon || "",
+    returnedAt: (request.thoi_gian_tra || "").slice(0, 16),
+    quantity: request.so_luong || "1",
+    note: request.ghi_chu || ""
   });
   const [error, setError] = useState("");
 
@@ -181,7 +181,7 @@ function EditReturnRequestModal({ request, approvedLoans, onClose, onSubmit, isS
       setError("Vui lòng điền đầy đủ thông tin.");
       return;
     }
-    
+
     onSubmit(request.id, {
       ma_phieu_muon: Number(form.loanId),
       thoi_gian_tra: form.returnedAt.replace("T", " "),
@@ -190,13 +190,16 @@ function EditReturnRequestModal({ request, approvedLoans, onClose, onSubmit, isS
     });
   };
 
+  const selectedLoanForReturn = approvedLoans.find((loanReq) => String(loanReq.id) === String(form.loanId));
+  const minReturnDate = selectedLoanForReturn?.ngay_muon ? selectedLoanForReturn.ngay_muon.slice(0, 16) : undefined;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50">
       <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
         <h3 className="mb-4 text-xl font-bold text-slate-800">
           Cập nhật phiếu trả {request.code}
         </h3>
-        
+
         {error && (
           <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
             {error}
@@ -216,7 +219,7 @@ function EditReturnRequestModal({ request, approvedLoans, onClose, onSubmit, isS
             </SelectInput>
           </Field>
           <Field label="Ngày trả">
-            <TextInput type="datetime-local" value={form.returnedAt} onChange={(val) => setForm({ ...form, returnedAt: val })} />
+            <TextInput type="datetime-local" value={form.returnedAt} onChange={(val) => setForm({ ...form, returnedAt: val })} min={minReturnDate} />
           </Field>
           <Field label="Số lượng trả">
             <TextInput type="number" min="1" value={form.quantity} onChange={(val) => setForm({ ...form, quantity: val })} />
@@ -229,8 +232,8 @@ function EditReturnRequestModal({ request, approvedLoans, onClose, onSubmit, isS
             <button type="button" onClick={onClose} className="rounded-lg bg-slate-100 px-4 py-2 font-medium text-slate-700 hover:bg-slate-200">
               Hủy
             </button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={isSubmitting}
               className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
@@ -256,11 +259,11 @@ export default function ReturnRequestsTab() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewingRequest, setViewingRequest] = useState(null);
 
-  const [form, setForm] = useState({ 
-    loanId: "", 
-    returnedAt: "", 
-    quantity: "1", 
-    note: "" 
+  const [form, setForm] = useState({
+    loanId: "",
+    returnedAt: "",
+    quantity: "1",
+    note: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
@@ -298,7 +301,7 @@ export default function ReturnRequestsTab() {
       setPageError("");
       setPageSuccess("");
       await returnRequestService.confirmReturnRequest(requestId, action, machineConditions);
-      setPageSuccess(action === "confirm" ? "Đã xác nhận trả máy thành công!" : "Đã chuyển trạng thái.");
+      setPageSuccess(action === "confirm" ? "Trả máy thành công!" : "Đã chuyển trạng thái.");
       setConfirmingRequest(null);
       fetchData(); // reload
     } catch (error) {
@@ -346,7 +349,7 @@ export default function ReturnRequestsTab() {
         so_luong: Number(form.quantity),
         ghi_chu: form.note.trim()
       });
-      
+
       setFormSuccess("Tạo phiếu trả máy thành công!");
       setForm({ loanId: "", returnedAt: "", quantity: "1", note: "" });
       fetchData();
@@ -371,12 +374,15 @@ export default function ReturnRequestsTab() {
       statusLabel: STATUS_MAP[req.trang_thai]?.label || req.trang_thai,
     })).filter((receipt) => {
       const searchContent = [
-        receipt.code, receipt.loanCode, receipt.teacher, 
+        receipt.code, receipt.loanCode, receipt.teacher,
         receipt.returnedAt, receipt.quantity, receipt.note, receipt.statusLabel
       ].join(" ").toLowerCase();
       return !keyword || searchContent.includes(keyword);
     });
   }, [receipts, searchKeyword]);
+
+  const selectedLoanForReturn = approvedLoans.find(l => String(l.id) === String(form.loanId));
+  const minReturnDate = selectedLoanForReturn?.ngay_muon ? selectedLoanForReturn.ngay_muon.slice(0, 16) : undefined;
 
   return (
     <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
@@ -395,7 +401,7 @@ export default function ReturnRequestsTab() {
             </SelectInput>
           </Field>
           <Field label="Ngày trả">
-            <TextInput type="datetime-local" value={form.returnedAt} onChange={(val) => setForm({ ...form, returnedAt: val })} />
+            <TextInput type="datetime-local" value={form.returnedAt} onChange={(val) => setForm({ ...form, returnedAt: val })} min={minReturnDate} />
           </Field>
           <Field label="Số lượng trả">
             <TextInput type="number" min="1" value={form.quantity} onChange={(val) => setForm({ ...form, quantity: val })} />
@@ -415,7 +421,7 @@ export default function ReturnRequestsTab() {
             </div>
           )}
 
-          <button 
+          <button
             type="submit"
             disabled={isSubmitting}
             className="inline-flex w-fit items-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-70"
@@ -425,10 +431,10 @@ export default function ReturnRequestsTab() {
           </button>
         </form>
       </SectionCard>
-      
+
       <div className="space-y-6">
         {confirmingRequest && (
-          <ReturnConfirmationModal 
+          <ReturnConfirmationModal
             request={confirmingRequest}
             onClose={() => setConfirmingRequest(null)}
             onSubmit={handleAction}
@@ -465,8 +471,8 @@ export default function ReturnRequestsTab() {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-600 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
               >
-                <option value="pending">Chưa xác nhận</option>
-                <option value="confirmed">Đã xác nhận</option>
+                <option value="pending">Chưa trả máy</option>
+                <option value="confirmed">Đã trả máy</option>
                 <option value="all">Tất cả</option>
               </select>
               <div className="relative">
@@ -482,7 +488,7 @@ export default function ReturnRequestsTab() {
             </div>
           }
         >
-          <DataTable 
+          <DataTable
             isLoading={isLoading}
             columns={[
               { key: "code", title: "Mã phiếu trả" },
@@ -490,8 +496,20 @@ export default function ReturnRequestsTab() {
               { key: "teacher", title: "Người trả" },
               { key: "returnedAt", title: "Ngày trả" },
               { key: "quantity", title: "Số lượng" },
-              { 
-                key: "trang_thai", 
+              {
+                key: "note",
+                title: "Ghi chú",
+                render: (_, item) => (
+                  <span
+                    className="block max-w-[180px] truncate"
+                    title={item.note || ""}
+                  >
+                    {item.note || "—"}
+                  </span>
+                ),
+              },
+              {
+                key: "trang_thai",
                 title: "Trạng thái",
                 render: (_, item) => {
                   const style = STATUS_MAP[item.trang_thai] || { label: item.trang_thai, color: "text-slate-600 bg-slate-50" };
@@ -515,7 +533,7 @@ export default function ReturnRequestsTab() {
                           className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-200"
                         >
                           <CheckCircle size={14} />
-                          Xác nhận
+                          Trả máy
                         </button>
                         <button
                           type="button"
@@ -528,7 +546,7 @@ export default function ReturnRequestsTab() {
                       </div>
                     );
                   }
-                  
+
                   if (receipt.trang_thai === "confirmed") {
                     return (
                       <button
@@ -545,8 +563,8 @@ export default function ReturnRequestsTab() {
                   return <span className="text-slate-400 font-medium text-xs uppercase">—</span>;
                 },
               },
-            ]} 
-            data={filteredReceipts} 
+            ]}
+            data={filteredReceipts}
             emptyText="Chưa có phiếu trả"
           />
         </SectionCard>
