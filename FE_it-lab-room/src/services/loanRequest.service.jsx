@@ -3,8 +3,8 @@ import { CONST_METHODS } from "../constants/methods.constant";
 import { fetcher } from "../helpers/fetcher.helper";
 
 export const loanRequestService = {
-  getAdminLoanRequests: (trangThai = "all", page = 1) => {
-    return fetcher(`${CONST_APIS.LOAN_REQUESTS.ADMIN_INDEX}?trang_thai=${trangThai}&page=${page}`, {
+  getAdminLoanRequests: (trangThai = "all", page = 1, perPage = 15) => {
+    return fetcher(`${CONST_APIS.LOAN_REQUESTS.ADMIN_INDEX}?trang_thai=${trangThai}&page=${page}&per_page=${perPage}`, {
       method: CONST_METHODS.GET,
     });
   },
@@ -18,15 +18,21 @@ export const loanRequestService = {
       },
     });
   },
-  getTeacherLoanRequests: (page = 1) => {
-    return fetcher(`${CONST_APIS.LOAN_REQUESTS.TEACHER_INDEX}?page=${page}`, {
-      method: CONST_METHODS.GET,
-    });
-  },
-  createTeacherLoanRequest: (data) => {
-    return fetcher(CONST_APIS.LOAN_REQUESTS.TEACHER_STORE, {
+  createAdminLoanRequest: (data) => {
+    return fetcher(CONST_APIS.LOAN_REQUESTS.ADMIN_STORE, {
       method: CONST_METHODS.POST,
       body: data,
+    });
+  },
+  updateAdminLoanRequest: (id, data) => {
+    return fetcher(CONST_APIS.LOAN_REQUESTS.ADMIN_UPDATE(id), {
+      method: CONST_METHODS.PUT,
+      body: data,
+    });
+  },
+  deleteAdminLoanRequest: (id) => {
+    return fetcher(CONST_APIS.LOAN_REQUESTS.ADMIN_DELETE(id), {
+      method: CONST_METHODS.DELETE,
     });
   },
 };

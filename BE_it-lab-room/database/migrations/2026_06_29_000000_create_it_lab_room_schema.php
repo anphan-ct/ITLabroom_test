@@ -189,7 +189,6 @@ CREATE TABLE `giang_vien` (
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `lich_su_dieu_chuyen_may` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `may_tinh_ids` json NOT NULL,
   `ma_phong_cu` bigint unsigned DEFAULT NULL,
   `ma_phong_moi` bigint unsigned DEFAULT NULL,
   `ma_nguoi_dieu_chuyen` bigint unsigned DEFAULT NULL,
@@ -205,6 +204,22 @@ CREATE TABLE `lich_su_dieu_chuyen_may` (
   CONSTRAINT `lich_su_dieu_chuyen_may_ibfk_1` FOREIGN KEY (`ma_phong_cu`) REFERENCES `phong_may` (`id`) ON DELETE SET NULL,
   CONSTRAINT `lich_su_dieu_chuyen_may_ibfk_2` FOREIGN KEY (`ma_phong_moi`) REFERENCES `phong_may` (`id`) ON DELETE SET NULL,
   CONSTRAINT `lich_su_dieu_chuyen_may_ibfk_3` FOREIGN KEY (`ma_nguoi_dieu_chuyen`) REFERENCES `nguoi_dung` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `chi_tiet_dieu_chuyen_may` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `ma_lich_su_dieu_chuyen` bigint unsigned NOT NULL,
+  `ma_may_tinh` bigint unsigned NOT NULL,
+  `ghi_chu` text COLLATE utf8mb4_unicode_ci,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `chi_tiet_dieu_chuyen_unique` (`ma_lich_su_dieu_chuyen`,`ma_may_tinh`),
+  KEY `ma_may_tinh` (`ma_may_tinh`),
+  CONSTRAINT `chi_tiet_dieu_chuyen_may_ibfk_1` FOREIGN KEY (`ma_lich_su_dieu_chuyen`) REFERENCES `lich_su_dieu_chuyen_may` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `chi_tiet_dieu_chuyen_may_ibfk_2` FOREIGN KEY (`ma_may_tinh`) REFERENCES `may_tinh` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -605,6 +620,7 @@ SQL);
         DB::unprepared(<<<'SQL'
 SET FOREIGN_KEY_CHECKS=0;
 DROP TABLE IF EXISTS `bao_cao_su_co`;
+DROP TABLE IF EXISTS `chi_tiet_dieu_chuyen_may`;
 DROP TABLE IF EXISTS `chi_tiet_lop_hoc_phan`;
 DROP TABLE IF EXISTS `chi_tiet_phieu_muon_may`;
 DROP TABLE IF EXISTS `chi_tiet_phieu_nhap_may`;

@@ -8,6 +8,7 @@ export default function DataTable({
   onRowClick,
   rowClassName,
   emptyText = "Chưa có dữ liệu để hiển thị",
+  isLoading = false,
 }) {
   const navigate = useNavigate();
 
@@ -45,7 +46,16 @@ export default function DataTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
-            {data.length > 0 ? data.map((row) => (
+            {isLoading ? (
+              <tr>
+                <td
+                  className="px-4 py-10 text-center text-sm font-medium text-slate-500"
+                  colSpan={columns.length}
+                >
+                  Đang tải...
+                </td>
+              </tr>
+            ) : data.length > 0 ? data.map((row) => (
               <tr
                 key={row.id}
                 onClick={(event) => handleRowClick(event, row)}

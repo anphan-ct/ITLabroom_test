@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\ReturnRequest;
+use App\Models\LoanRequest;
 use App\Models\LoanRequestDetail;
 use App\Enums\ReturnRequestStatus;
 use Illuminate\Foundation\Http\FormRequest;
@@ -49,12 +50,12 @@ class ReturnRequestConfirmRequest extends FormRequest
                 return;
             }
 
-            // Kiểm tra mỗi máy có nằm trong phiếu mượn gốc và chưa được trả không.
-            $loanRequestId = $returnRequest->ma_phieu_muon;
-            $borrowedComputerIds = LoanRequestDetail::where('ma_phieu_muon', $loanRequestId)
-                ->where('trang_thai_tra', '!=', 'Đã trả')
-                ->pluck('ma_may_tinh')
-                ->toArray();
+            // Kiểm tra mỗi máy có nằm trong phiếu mượn gốc và chưa được trả không (tính động, không dùng cột tĩnh).
+            $loanRequest = LoanRequest::find($returnRequest->ma_phieu_muon);
+            $allBorrowedComputerIds = LoanRequestDetail::where('ma_phieu_muon', $returnRequest->ma_phieu_muon)
+                ->pluck('ma_may_tinh');
+            $returnedComputerIds = $loanRequest ? $loanRequest->getReturnedComputerIds() : collect();
+            $borrowedComputerIds = $allBorrowedComputerIds->diff($returnedComputerIds)->toArray();
 
             foreach ($providedComputerIds as $id) {
                 if (!in_array($id, $borrowedComputerIds)) {

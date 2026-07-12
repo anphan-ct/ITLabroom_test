@@ -8,7 +8,7 @@ export function Field({ label, children, error = "" }) {
   );
 }
 
-export function TextInput({ value, onChange, placeholder, type = "text", disabled = false }) {
+export function TextInput({ value, onChange, placeholder, type = "text", disabled = false, min }) {
   return (
     <input
       type={type}
@@ -17,6 +17,7 @@ export function TextInput({ value, onChange, placeholder, type = "text", disable
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}
       disabled={disabled}
+      min={min}
       className="h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-blue-500 focus:bg-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
     />
   );

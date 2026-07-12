@@ -78,24 +78,6 @@ export const roleMenus = {
   teacher: [
     { to: "/teacher/schedules", label: "Lịch giảng dạy", icon: CalendarDays },
     { to: "/teacher/attendance", label: "Điểm danh", icon: QrCode },
-    {
-      to: "/teacher/loan-requests",
-      label: "Mượn máy",
-      icon: FileText,
-      children: [
-        { to: "/teacher/loan-requests", label: "Phiếu mượn", icon: FileText },
-        { to: "/teacher/loan-details", label: "Chi tiết mượn", icon: ClipboardList },
-      ],
-    },
-    {
-      to: "/teacher/computer-returns",
-      label: "Trả máy",
-      icon: RotateCcw,
-      children: [
-        { to: "/teacher/computer-returns", label: "Phiếu trả máy", icon: RotateCcw },
-        { to: "/teacher/computer-return-details", label: "Chi tiết trả", icon: ClipboardList },
-      ],
-    },
     { to: "/teacher/incidents", label: "Báo sự cố", icon: AlertTriangle },
     { to: "/teacher/bookings", label: "Đăng ký phòng", icon: ClipboardList },
   ],

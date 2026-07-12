@@ -64,26 +64,14 @@ class ComputerImportController extends Controller
                     ->findOrFail($data['ma_phong']);
 
                 $tenPhong = trim($phongMay->ten_phong);
-                $tenPhongPattern = preg_quote($tenPhong, '/');
-                $soTenMayLonNhatTrongPhong = Computer::query()
-                    ->where('ma_phong', $phongMay->id)
-                    ->pluck('ten_may')
-                    ->map(function ($tenMay) use ($tenPhongPattern) {
-                        // Lấy số cuối trong tên máy theo định dạng tên phòng + số máy, ví dụ F7.1-01.
-                        if (preg_match('/^'.$tenPhongPattern.'-(\d+)$/u', $tenMay, $matches)) {
-                            return (int) $matches[1];
-                        }
-
-                        return 0;
-                    })
-                    ->max() ?? 0;
+                $tenMayList = Computer::generateTenMaySequence($phongMay->id, $tenPhong, (int) $data['so_luong']);
 
                 $maPhieuNhapNumber = str_replace('PN-', '', $phieuNhap->ma_phieu_nhap);
 
                 for ($i = 1; $i <= (int) $data['so_luong']; $i++) {
                     $soThuTuMay = str_pad((string) $i, 3, '0', STR_PAD_LEFT);
                     $maMay = 'PC-'.$maPhieuNhapNumber.'-'.$soThuTuMay;
-                    $tenMay = $tenPhong.'-'.str_pad((string) ($soTenMayLonNhatTrongPhong + $i), 2, '0', STR_PAD_LEFT);
+                    $tenMay = $tenMayList[$i - 1];
 
                     if (Computer::where('ma_may', $maMay)->exists()) {
                         throw ValidationException::withMessages([

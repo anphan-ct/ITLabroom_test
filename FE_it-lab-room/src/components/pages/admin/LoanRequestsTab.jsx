@@ -1,16 +1,27 @@
 import { useMemo, useState, useEffect } from "react";
-import { CheckCircle, Search, XCircle, ListChecks } from "lucide-react";
+import { CheckCircle, Search, XCircle, ListChecks, Plus, Edit2, Trash2 } from "lucide-react";
 import DataTable from "../../common/DataTable";
+import Pagination from "../../common/Pagination";
 import SectionCard from "../../common/SectionCard";
 import ComputerConditionListModal from "../../common/ComputerConditionListModal";
 import { loanRequestService } from "../../../services/loanRequest.service";
 import { getComputersFromApi } from "../../../services/computer.service";
 import { getRoomsFromApi } from "../../../services/room.service";
+import { fetcher } from "../../../helpers/fetcher.helper";
+import { CONST_APIS } from "../../../constants/apis.constant";
+import { CONST_METHODS } from "../../../constants/methods.constant";
+import { Field, SelectInput, TextInput } from "./adminFormControls";
 
 const STATUS_MAP = {
   pending: { label: "Chờ duyệt", color: "text-amber-600 bg-amber-50" },
   approved: { label: "Đã duyệt", color: "text-green-600 bg-green-50" },
   rejected: { label: "Từ chối", color: "text-rose-600 bg-rose-50" },
+};
+
+const DISPLAY_STATUS_MAP = {
+  "Chưa chuyển máy": { label: "Chưa cấp máy", color: "text-amber-600 bg-amber-50" },
+  "Chưa trả máy":    { label: "Đã cấp máy",   color: "text-blue-600 bg-blue-50" },
+  "Đã trả máy":      { label: "Đã trả",       color: "text-green-600 bg-green-50" },
 };
 
 const COMPUTER_STATUS_MAP = {
@@ -20,7 +31,7 @@ const COMPUTER_STATUS_MAP = {
   borrowed: "Đang mượn",
 };
 
-function AllocationModal({ request, rooms, onClose, onSubmit }) {
+function AllocationModal({ request, rooms, onClose, onSubmit, isSubmitting = false }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [conditions, setConditions] = useState({});
   const [notes, setNotes] = useState({});
@@ -43,7 +54,6 @@ function AllocationModal({ request, rooms, onClose, onSubmit }) {
           setComputers(res.data || []);
         }
       } catch (err) {
-        // ignore for now
       } finally {
         setIsLoadingComputers(false);
       }
@@ -147,7 +157,7 @@ function AllocationModal({ request, rooms, onClose, onSubmit }) {
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleSelect(c.id)}
-                        disabled={!isSelected && selectedIds.length >= requiredCount}
+                        disabled={isSubmitting || (!isSelected && selectedIds.length >= requiredCount)}
                         className="h-4 w-4 rounded border-slate-300 text-blue-600"
                       />
                     </td>
@@ -191,17 +201,95 @@ function AllocationModal({ request, rooms, onClose, onSubmit }) {
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
-          <button onClick={onClose} className="rounded-lg bg-slate-100 px-4 py-2 font-medium text-slate-700 hover:bg-slate-200">
+          <button onClick={onClose} disabled={isSubmitting} className="rounded-lg bg-slate-100 px-4 py-2 font-medium text-slate-700 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50">
             Hủy
           </button>
           <button
             onClick={handleSubmit}
-            disabled={selectedIds.length !== requiredCount}
+            disabled={selectedIds.length !== requiredCount || isSubmitting}
             className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            Xác nhận Duyệt
+            {isSubmitting ? "Đang xử lý..." : "Xác nhận Duyệt"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function EditLoanRequestModal({ request, departments, onClose, onSubmit, isSubmitting }) {
+  const [form, setForm] = useState({
+    borrowerName: request.nguoi_muon || request.ten_giang_vien || "",
+    departmentId: request.department_id || "",
+    borrowedAt: (request.ngay_muon || "").slice(0, 16),
+    quantity: request.so_luong || "1",
+    purpose: request.ly_do_muon || ""
+  });
+  const [error, setError] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.borrowerName.trim() || !form.departmentId || !form.borrowedAt || !form.quantity) {
+      setError("Vui lòng điền đủ thông tin phiếu mượn.");
+      return;
+    }
+    onSubmit(request.id, {
+      nguoi_muon: form.borrowerName.trim(),
+      ma_phong_ban: Number(form.departmentId),
+      ngay_muon: form.borrowedAt.replace("T", " "),
+      so_luong: Number(form.quantity),
+      ly_do_muon: form.purpose.trim()
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <h3 className="mb-4 text-xl font-bold text-slate-800">
+          Cập nhật phiếu mượn {request.code}
+        </h3>
+        
+        {error && (
+          <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="grid gap-4">
+          <Field label="Người mượn">
+            <TextInput value={form.borrowerName} onChange={(val) => setForm({...form, borrowerName: val})} placeholder="Tên người mượn..." />
+          </Field>
+          <Field label="Phòng ban">
+            <SelectInput value={form.departmentId} onChange={(val) => setForm({...form, departmentId: val})}>
+              <option value="">Chọn phòng ban</option>
+              {departments.map((dep) => (
+                <option key={dep.id} value={dep.id}>{dep.department_name}</option>
+              ))}
+            </SelectInput>
+          </Field>
+          <Field label="Ngày mượn">
+            <TextInput type="datetime-local" value={form.borrowedAt} onChange={(val) => setForm({...form, borrowedAt: val})} />
+          </Field>
+          <Field label="Số lượng">
+            <TextInput type="number" min="1" value={form.quantity} onChange={(val) => setForm({...form, quantity: val})} />
+          </Field>
+          <Field label="Lý do mượn">
+            <TextInput value={form.purpose} onChange={(val) => setForm({...form, purpose: val})} placeholder="Mục đích..." />
+          </Field>
+
+          <div className="mt-6 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="rounded-lg bg-slate-100 px-4 py-2 font-medium text-slate-700 hover:bg-slate-200">
+              Hủy
+            </button>
+            <button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isSubmitting ? "Đang xử lý..." : "Lưu thay đổi"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -210,27 +298,73 @@ function AllocationModal({ request, rooms, onClose, onSubmit }) {
 export default function LoanRequestsTab() {
   const [requests, setRequests] = useState([]);
   const [rooms, setRooms] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [allocatingRequest, setAllocatingRequest] = useState(null);
+  const [editingRequest, setEditingRequest] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isAllocating, setIsAllocating] = useState(false);
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");// trạng thái lọc
+  const [statusFilter, setStatusFilter] = useState("all");
   const [viewingRequest, setViewingRequest] = useState(null);
+  const [pagination, setPagination] = useState({ current_page: 1, last_page: 1, total: 0 });
 
-  const fetchData = async () => {
+  const [form, setForm] = useState({
+    borrowerName: "",
+    departmentId: "",
+    borrowedAt: "",
+    quantity: "1",
+    purpose: ""
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
+
+  // Tự ẩn thông báo sau 5 giây
+  useEffect(() => {
+    if (!pageSuccess) return;
+    const timer = setTimeout(() => setPageSuccess(""), 5000);
+    return () => clearTimeout(timer);
+  }, [pageSuccess]);
+
+  useEffect(() => {
+    if (!pageError) return;
+    const timer = setTimeout(() => setPageError(""), 5000);
+    return () => clearTimeout(timer);
+  }, [pageError]);
+
+  useEffect(() => {
+    if (!formSuccess) return;
+    const timer = setTimeout(() => setFormSuccess(""), 5000);
+    return () => clearTimeout(timer);
+  }, [formSuccess]);
+
+  useEffect(() => {
+    if (!formError) return;
+    const timer = setTimeout(() => setFormError(""), 5000);
+    return () => clearTimeout(timer);
+  }, [formError]);
+
+  const fetchData = async (page = pagination.current_page) => {
     try {
       setIsLoading(true);
       setPageError("");
-      const [reqRes, roomRes] = await Promise.all([
-        loanRequestService.getAdminLoanRequests(statusFilter, 1),
-        getRoomsFromApi({ includeStorage: true })
+      const [reqRes, roomRes, deptRes] = await Promise.all([
+        loanRequestService.getAdminLoanRequests(statusFilter, page),
+        getRoomsFromApi({ includeStorage: true }),
+        fetcher(CONST_APIS.DEPARTMENTS.INDEX, { method: CONST_METHODS.GET })
       ]);
       if (reqRes.status) {
-        setRequests(reqRes.data?.data || []);
+        setRequests(reqRes.data || []);
+        setPagination(reqRes.pagination || { current_page: 1, last_page: 1, total: 0 });
       }
       if (roomRes.status) {
         setRooms(roomRes.data || []);
+      }
+      if (deptRes.status) {
+        setDepartments(deptRes.data || []);
       }
     } catch (error) {
       setPageError("Lỗi khi tải dữ liệu.");
@@ -240,19 +374,83 @@ export default function LoanRequestsTab() {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(1);
   }, [statusFilter]);
+
+  const handleDelete = async (request) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xoá phiếu mượn ${request.code} không? Hành động này không thể hoàn tác.`)) {
+      return;
+    }
+    
+    try {
+      setPageError("");
+      setPageSuccess("");
+      await loanRequestService.deleteAdminLoanRequest(request.id);
+      setPageSuccess(`Đã xoá phiếu mượn ${request.code} thành công.`);
+      fetchData();
+    } catch (error) {
+      setPageError(error.message || "Lỗi khi xoá phiếu mượn.");
+    }
+  };
 
   const handleAction = async (requestId, action, computerIds = [], machineConditions = []) => {
     try {
       setPageError("");
       setPageSuccess("");
+      setIsAllocating(true);
       await loanRequestService.approveLoanRequest(requestId, action, computerIds, machineConditions);
-      setPageSuccess(action === "approve" ? "Đã duyệt phiếu thành công!" : "Đã từ chối phiếu mượn.");
+      setPageSuccess(action === "approve" ? "Đã cấp phát máy thành công!" : "Đã từ chối phiếu mượn.");
       setAllocatingRequest(null);
-      fetchData(); // reload
+      fetchData();
     } catch (error) {
       setPageError(error.message || "Đã xảy ra lỗi.");
+    } finally {
+      setIsAllocating(false);
+    }
+  };
+
+  const handleUpdate = async (id, data) => {
+    try {
+      setPageError("");
+      setPageSuccess("");
+      setIsUpdating(true);
+      await loanRequestService.updateAdminLoanRequest(id, data);
+      setPageSuccess("Cập nhật phiếu mượn thành công!");
+      setEditingRequest(null);
+      fetchData();
+    } catch (error) {
+      setPageError(error.message || "Lỗi cập nhật phiếu.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const submitForm = async (event) => {
+    event.preventDefault();
+    setFormError("");
+    setFormSuccess("");
+
+    if (!form.borrowerName.trim() || !form.departmentId || !form.borrowedAt || !form.quantity) {
+      setFormError("Vui lòng điền đủ thông tin phiếu mượn.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await loanRequestService.createAdminLoanRequest({
+        nguoi_muon: form.borrowerName.trim(),
+        ma_phong_ban: Number(form.departmentId),
+        ngay_muon: form.borrowedAt.replace("T", " "),
+        so_luong: Number(form.quantity),
+        ly_do_muon: form.purpose.trim()
+      });
+      setFormSuccess("Tạo phiếu mượn thành công!");
+      setForm({ borrowerName: "", departmentId: "", borrowedAt: "", quantity: "1", purpose: "" });
+      fetchData();
+    } catch (error) {
+      setFormError(error.message || "Lỗi tạo phiếu.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -262,12 +460,12 @@ export default function LoanRequestsTab() {
     return requests.map(req => ({
       ...req,
       code: req.ma_phieu_muon,
-      teacher: req.ten_giang_vien || "N/A",
-      department: req.ma_phong_ban || "N/A",
+      teacher: req.nguoi_muon || req.ten_giang_vien || "N/A",
+      department: req.department?.department_name || req.ma_phong_ban || "N/A",
       quantity: req.so_luong,
       borrowedAt: new Date(req.ngay_muon).toLocaleString('vi-VN'),
       reason: req.ly_do_muon,
-      statusLabel: STATUS_MAP[req.trang_thai]?.label || req.trang_thai,
+      statusLabel: DISPLAY_STATUS_MAP[req.trang_thai_hien_thi]?.label || STATUS_MAP[req.trang_thai]?.label || req.trang_thai,
     })).filter((request) => {
       const searchContent = [
         request.code, request.teacher, request.department,
@@ -278,127 +476,205 @@ export default function LoanRequestsTab() {
   }, [requests, searchKeyword]);
 
   return (
-    <div className="space-y-6">
-      {allocatingRequest && (
-        <AllocationModal
-          request={allocatingRequest}
-          rooms={rooms}
-          onClose={() => setAllocatingRequest(null)}
-          onSubmit={handleAction}
-        />
-      )}
+    <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+      <SectionCard title="Tạo phiếu mượn">
+        <form onSubmit={submitForm} className="grid gap-4">
+          <Field label="Người mượn">
+            <TextInput value={form.borrowerName} onChange={(val) => setForm({...form, borrowerName: val})} placeholder="Tên người mượn..." />
+          </Field>
+          <Field label="Phòng ban">
+            <SelectInput value={form.departmentId} onChange={(val) => setForm({...form, departmentId: val})}>
+              <option value="">Chọn phòng ban</option>
+              {departments.map((dep) => (
+                <option key={dep.id} value={dep.id}>{dep.department_name}</option>
+              ))}
+            </SelectInput>
+          </Field>
+          <Field label="Ngày mượn">
+            <TextInput type="datetime-local" value={form.borrowedAt} onChange={(val) => setForm({...form, borrowedAt: val})} />
+          </Field>
+          <Field label="Số lượng">
+            <TextInput type="number" min="1" value={form.quantity} onChange={(val) => setForm({...form, quantity: val})} />
+          </Field>
+          <Field label="Lý do mượn">
+            <TextInput value={form.purpose} onChange={(val) => setForm({...form, purpose: val})} placeholder="Mục đích..." />
+          </Field>
 
-      {pageError && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-          {pageError}
-        </div>
-      )}
-      {pageSuccess && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-          {pageSuccess}
-        </div>
-      )}
-
-      <SectionCard
-        title="Danh sách phiếu mượn chờ duyệt"
-        rightAction={
-          <div className="flex items-center gap-3">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-600 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="pending">Chờ duyệt</option>
-              <option value="approved">Đã duyệt</option>
-              <option value="rejected">Từ chối</option>
-              <option value="all">Tất cả</option>
-            </select>
-            <div className="relative">
-              <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="search"
-                value={searchKeyword}
-                onChange={(event) => setSearchKeyword(event.target.value)}
-                placeholder="Tìm phiếu mượn"
-                className="w-full min-w-[240px] rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 sm:w-72"
-              />
+          {formError && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+              {formError}
             </div>
-          </div>
-        }
-      >
-        <DataTable
-          isLoading={isLoading}
-          columns={[
-            { key: "code", title: "Mã phiếu" },
-            { key: "teacher", title: "Giảng viên" },
-            { key: "department", title: "Phòng ban" },
-            { key: "quantity", title: "Số lượng" },
-            { key: "borrowedAt", title: "Ngày mượn" },
-            { key: "reason", title: "Lý do mượn" },
-            {
-              key: "trang_thai",
-              title: "Trạng thái",
-              render: (_, item) => {
-                const style = STATUS_MAP[item.trang_thai] || { label: item.trang_thai, color: "text-slate-600 bg-slate-50" };
-                return (
-                  <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${style.color}`}>
-                    {style.label}
-                  </span>
-                );
-              }
-            },
-            {
-              key: "actions",
-              title: "Thao tác",
-              render: (_, request) => {
-                if (request.trang_thai === "pending") {
-                  return (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setAllocatingRequest(request)}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-200"
-                      >
-                        <CheckCircle size={14} />
-                        Duyệt
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (window.confirm("Từ chối phiếu mượn này?")) {
-                            handleAction(request.id, "reject");
-                          }
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700 transition hover:bg-rose-200"
-                      >
-                        <XCircle size={14} />
-                        Từ chối
-                      </button>
-                    </div>
-                  );
-                }
+          )}
+          {formSuccess && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+              {formSuccess}
+            </div>
+          )}
 
-                if (request.trang_thai === "approved") {
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => setViewingRequest(request)}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700 transition hover:bg-blue-200"
-                    >
-                      <ListChecks size={14} />
-                      Xem chi tiết máy
-                    </button>
-                  );
-                }
-
-                return <span className="text-slate-400 font-medium text-xs uppercase">—</span>;
-              },
-            },
-          ]}
-          data={filteredRequests}
-          emptyText="Chưa có phiếu mượn cần duyệt"
-        />
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="inline-flex w-fit items-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-70"
+          >
+            <Plus size={16} />
+            {isSubmitting ? "Đang xử lý..." : "Tạo phiếu mượn"}
+          </button>
+        </form>
       </SectionCard>
+
+      <div className="space-y-6">
+        {allocatingRequest && (
+          <AllocationModal
+            request={allocatingRequest}
+            rooms={rooms}
+            onClose={() => setAllocatingRequest(null)}
+            onSubmit={handleAction}
+            isSubmitting={isAllocating}
+          />
+        )}
+
+        {editingRequest && (
+          <EditLoanRequestModal
+            request={editingRequest}
+            departments={departments}
+            onClose={() => setEditingRequest(null)}
+            onSubmit={handleUpdate}
+            isSubmitting={isUpdating}
+          />
+        )}
+
+        {pageError && (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+            {pageError}
+          </div>
+        )}
+        {pageSuccess && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+            {pageSuccess}
+          </div>
+        )}
+
+        <SectionCard
+          title="Danh sách phiếu mượn"
+          rightAction={
+            <div className="flex items-center gap-3">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-600 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="chua_cap_may">Chưa cấp máy</option>
+                <option value="da_cap_may">Đã cấp máy</option>
+                <option value="da_tra">Đã trả</option>
+                <option value="all">Tất cả</option>
+              </select>
+              <div className="relative">
+                <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="search"
+                  value={searchKeyword}
+                  onChange={(event) => setSearchKeyword(event.target.value)}
+                  placeholder="Tìm phiếu mượn"
+                  className="w-full min-w-[200px] rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 sm:w-64"
+                />
+              </div>
+            </div>
+          }
+        >
+          <DataTable
+            isLoading={isLoading}
+            columns={[
+              { key: "code", title: "Mã phiếu" },
+              { key: "teacher", title: "Người mượn" },
+              { key: "department", title: "Phòng ban" },
+              { key: "quantity", title: "Số lượng" },
+              { key: "borrowedAt", title: "Ngày mượn" },
+              {
+                key: "reason",
+                title: "Lý do mượn",
+                render: (_, item) => (
+                  <span
+                    className="block max-w-[180px] truncate"
+                    title={item.reason || ""}
+                  >
+                    {item.reason || "—"}
+                  </span>
+                ),
+              },
+              {
+                key: "trang_thai",
+                title: "Trạng thái",
+                render: (_, item) => {
+                  const style = DISPLAY_STATUS_MAP[item.trang_thai_hien_thi] || { label: item.trang_thai_hien_thi || item.trang_thai, color: "text-slate-600 bg-slate-50" };
+                  return (
+                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${style.color}`}>
+                      {style.label}
+                    </span>
+                  );
+                }
+              },
+              {
+                key: "actions",
+                title: "Thao tác",
+                render: (_, request) => {
+                  if (request.trang_thai_hien_thi === "pending" || (!request.details?.length && request.trang_thai !== "rejected")) {
+                    return (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAllocatingRequest(request)}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-200"
+                        >
+                          <CheckCircle size={14} />
+                          Cấp máy
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingRequest(request)}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700 transition hover:bg-blue-200"
+                        >
+                          <Edit2 size={14} />
+                          Cập nhật
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(request)}
+                          className="inline-flex items-center justify-center rounded-lg bg-rose-100 p-1.5 text-rose-700 transition hover:bg-rose-200"
+                          title="Xóa phiếu"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  if (request.trang_thai_hien_thi === "Chưa trả máy" || request.trang_thai_hien_thi === "Đã trả máy") {
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setViewingRequest(request)}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700 transition hover:bg-blue-200"
+                      >
+                        <ListChecks size={14} />
+                        Chi tiết máy
+                      </button>
+                    );
+                  }
+
+                  return <span className="text-slate-400 font-medium text-xs uppercase">—</span>;
+                },
+              },
+            ]}
+            data={filteredRequests}
+            emptyText="Chưa có phiếu mượn"
+          />
+          <Pagination
+            currentPage={pagination.current_page}
+            lastPage={pagination.last_page}
+            onPageChange={(page) => fetchData(page)}
+          />
+        </SectionCard>
+      </div>
 
       <ComputerConditionListModal
         open={!!viewingRequest}

@@ -39,7 +39,7 @@ export default function MaintenanceTicketUpdateModal({
             <Field label="Báo cáo sự cố">
               <TextInput
                 value={ticket?.bao_cao_su_co ? `#${ticket.bao_cao_su_co.id} - ${ticket.bao_cao_su_co.tieu_de}` : ""}
-                onChange={() => {}}
+                onChange={() => { }}
                 disabled
               />
             </Field>
@@ -74,7 +74,7 @@ export default function MaintenanceTicketUpdateModal({
             <Field label="Cách xử lý">
               <TextInput value={form.cach_xu_ly} onChange={(val) => onFormChange("cach_xu_ly", val)} />
             </Field>
-            <Field label="Chi phí">
+            <Field label="Chi phí (VNĐ)">
               <TextInput type="number" value={form.chi_phi} onChange={(val) => onFormChange("chi_phi", val)} />
             </Field>
             <Field label="Trạng thái">
@@ -84,7 +84,7 @@ export default function MaintenanceTicketUpdateModal({
                 ))}
               </SelectInput>
             </Field>
-            
+
             <div className="flex items-center gap-3">
               <button
                 disabled={submitting}
