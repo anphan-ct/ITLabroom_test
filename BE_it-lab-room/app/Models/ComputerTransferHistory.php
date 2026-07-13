@@ -26,7 +26,7 @@ class ComputerTransferHistory extends Model
         'thoi_gian_dieu_chuyen' => 'datetime',
     ];
 
-    // Danh sách chi tiết máy tính trong lần điều chuyển.
+    // Quan hệ: chi tiết điều chuyển máy (danh sách máy tính trong lần điều chuyển)
     public function details(): HasMany
     {
         return $this->hasMany(ComputerTransferDetail::class, 'ma_lich_su_dieu_chuyen');

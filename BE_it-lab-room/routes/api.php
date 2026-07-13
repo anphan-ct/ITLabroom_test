@@ -28,8 +28,6 @@ use App\Http\Controllers\student\ComputerLabScheduleController as StudentCompute
 use App\Http\Controllers\teacher\AttendanceController as TeacherAttendanceController;
 use App\Http\Controllers\teacher\AuthController as TeacherAuthController;
 use App\Http\Controllers\teacher\ComputerLabScheduleController as TeacherComputerLabScheduleController;
-use App\Http\Controllers\teacher\LoanRequestController as TeacherLoanRequestController;
-use App\Http\Controllers\teacher\ReturnRequestController as TeacherReturnRequestController;
 use App\Http\Controllers\teacher\RoomBookingController as TeacherRoomBookingController;
 use Illuminate\Support\Facades\Route;
 
@@ -73,12 +71,6 @@ Route::middleware(['auth:sanctum', 'abilities:teacher'])->group(function () {
     // Phòng máy và máy tính/thiết bị chỉ đọc, dùng cho form báo cáo sự cố.
     Route::get('/teacher/rooms', [RoomController::class, 'index']);
     Route::get('/teacher/rooms/{room}/computers', [RoomController::class, 'computers']);
-
-    // Mượn / trả máy của giảng viên.
-    Route::get('/teacher/loan-requests', [TeacherLoanRequestController::class, 'index']);
-    Route::post('/teacher/loan-requests', [TeacherLoanRequestController::class, 'store']);
-    Route::get('/teacher/return-requests', [TeacherReturnRequestController::class, 'index']);
-    Route::post('/teacher/return-requests', [TeacherReturnRequestController::class, 'store']);
 });
 
 // Nhóm API dành cho sinh viên.
@@ -233,12 +225,18 @@ Route::middleware(['auth:sanctum', 'abilities:admin'])->group(function () {
     // Nhóm API duyệt phiếu mượn máy.
     Route::prefix('admin/loan-requests')->group(function () {
         Route::get('/', [AdminLoanRequestController::class, 'index']);
-        Route::patch('/{loanRequest}/approval', [AdminLoanRequestController::class, 'approve']);
+        Route::post('/', [AdminLoanRequestController::class, 'store']);
+        Route::put('/{loanRequest}', [AdminLoanRequestController::class, 'update']);
+        Route::patch('/{loanRequest}/assign-computers', [AdminLoanRequestController::class, 'assignComputers']);
+        Route::delete('/{loanRequest}', [AdminLoanRequestController::class, 'destroy']);
     });
 
     // Nhóm API xác nhận phiếu trả máy.
     Route::prefix('admin/return-requests')->group(function () {
         Route::get('/', [AdminReturnRequestController::class, 'index']);
+        Route::post('/', [AdminReturnRequestController::class, 'store']);
+        Route::put('/{returnRequest}', [AdminReturnRequestController::class, 'update']);
         Route::patch('/{returnRequest}/confirmation', [AdminReturnRequestController::class, 'confirm']);
+        Route::delete('/{returnRequest}', [AdminReturnRequestController::class, 'destroy']);
     });
 });

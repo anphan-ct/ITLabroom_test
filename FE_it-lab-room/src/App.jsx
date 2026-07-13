@@ -18,15 +18,11 @@ import MaintenancePage from "./components/pages/admin/MaintenancePage.jsx";
 import MaintenanceTicketsPage from "./components/pages/admin/MaintenanceTicketsPage.jsx";
 import SchedulesPage from "./components/pages/admin/SchedulesPage.jsx";
 import ScheduleFormPage from "./components/pages/admin/ScheduleFormPage.jsx";
-import LoanRequestsManagePage from "./components/pages/teacher/LoanRequestsManagePage.jsx";
-import LoanReturnLayoutPage from "./components/pages/admin/LoanReturnLayoutPage.jsx";
 import LoanRequestsTab from "./components/pages/admin/LoanRequestsTab.jsx";
 import ReturnRequestsTab from "./components/pages/admin/ReturnRequestsTab.jsx";
 import RoomBookingsManagePage from "./components/pages/admin/RoomBookingsManagePage.jsx";
 import ComputerImportDetailPage from "./components/pages/admin/ComputerImportDetailPage.jsx";
 import ComputerImportsPage from "./components/pages/admin/ComputerImportsPage.jsx";
-import ComputerReturnDetailsPage from "./components/pages/admin/ComputerReturnDetailsPage.jsx";
-import ComputerReturnsPage from "./components/pages/teacher/ComputerReturnsPage.jsx";
 import ComputerTransfersPage from "./components/pages/admin/ComputerTransfersPage.jsx";
 import CourseSectionsPage from "./components/pages/admin/CourseSectionsPage.jsx";
 import CourseSectionFormPage from "./components/pages/admin/CourseSectionFormPage.jsx";
@@ -34,7 +30,6 @@ import CourseSectionStudentsPage from "./components/pages/admin/CourseSectionStu
 import AcademicYearsPage from "./components/pages/admin/AcademicYearsPage.jsx";
 import AcademicYearFormPage from "./components/pages/admin/AcademicYearFormPage.jsx";
 import AcademicYearWeeksPage from "./components/pages/admin/AcademicYearWeeksPage.jsx";
-import LoanDetailsPage from "./components/pages/admin/LoanDetailsPage.jsx";
 import RepairLogsPage from "./components/pages/admin/RepairLogsPage.jsx";
 
 import TeacherSchedulePage from "./components/pages/teacher/TeacherSchedulePage.jsx";
@@ -47,7 +42,6 @@ import StudentSchedulePage from "./components/pages/student/StudentSchedulePage.
 import StudentIncidentPage from "./components/pages/student/StudentIncidentPage.jsx";
 import StudentAttendancePage from "./components/pages/student/StudentAttendancePage.jsx";
 import StudentAttendanceDetailPage from "./components/pages/student/StudentAttendanceDetailPage.jsx";
-import StudentAttendanceClassHistoryPage from "./components/pages/student/StudentAttendanceClassHistoryPage.jsx";
 export default function App() {
   return (
     <Routes>
@@ -98,11 +92,18 @@ export default function App() {
         path="/admin/return-approvals"
         element={<ProtectedRoute role="admin"><Navigate to="/admin/loan-return/returns" replace /></ProtectedRoute>}
       />
-      <Route path="/admin/loan-return" element={<ProtectedRoute role="admin"><LoanReturnLayoutPage /></ProtectedRoute>}>
-        <Route index element={<Navigate to="loans" replace />} />
-        <Route path="loans" element={<LoanRequestsTab />} />
-        <Route path="returns" element={<ReturnRequestsTab />} />
-      </Route>
+      <Route
+        path="/admin/loan-return"
+        element={<ProtectedRoute role="admin"><Navigate to="/admin/loan-return/loans" replace /></ProtectedRoute>}
+      />
+      <Route
+        path="/admin/loan-return/loans"
+        element={<ProtectedRoute role="admin"><LoanRequestsTab /></ProtectedRoute>}
+      />
+      <Route
+        path="/admin/loan-return/returns"
+        element={<ProtectedRoute role="admin"><ReturnRequestsTab /></ProtectedRoute>}
+      />
       <Route
         path="/admin/room-bookings"
         element={<ProtectedRoute role="admin"><RoomBookingsManagePage /></ProtectedRoute>}
@@ -117,12 +118,7 @@ export default function App() {
       <Route path="/teacher/schedules" element={<ProtectedRoute role="teacher"><TeacherSchedulePage /></ProtectedRoute>} />
       <Route path="/teacher/attendance" element={<ProtectedRoute role="teacher"><AttendancePage /></ProtectedRoute>} />
       <Route path="/teacher/attendance/schedules/:scheduleId" element={<ProtectedRoute role="teacher"><TeacherScheduleAttendancePage /></ProtectedRoute>} />
-      <Route path="/teacher/attendance/schedules/:scheduleId/computers/:computerId/confirm" element={<ProtectedRoute role="teacher"><TeacherScheduleAttendancePage /></ProtectedRoute>} />
-      <Route path="/teacher/attendance/schedules/:scheduleId/computers/:computerId/check-in" element={<ProtectedRoute role="teacher"><TeacherScheduleAttendancePage /></ProtectedRoute>} />
-      <Route path="/teacher/loan-requests" element={<ProtectedRoute role="teacher"><LoanRequestsManagePage /></ProtectedRoute>} />
-      <Route path="/teacher/loan-details" element={<ProtectedRoute role="teacher"><LoanDetailsPage /></ProtectedRoute>} />
-      <Route path="/teacher/computer-returns" element={<ProtectedRoute role="teacher"><ComputerReturnsPage /></ProtectedRoute>} />
-      <Route path="/teacher/computer-return-details" element={<ProtectedRoute role="teacher"><ComputerReturnDetailsPage /></ProtectedRoute>} />
+
       <Route
         path="/teacher/incidents"
         element={
@@ -144,7 +140,7 @@ export default function App() {
       <Route path="/student/incidents" element={<ProtectedRoute role="student"><StudentIncidentPage /></ProtectedRoute>} />
       <Route path="/student/attendance" element={<ProtectedRoute role="student"><StudentAttendancePage /></ProtectedRoute>} />
       <Route path="/student/attendance/history" element={<ProtectedRoute role="student"><Navigate to="/student/attendance" replace /></ProtectedRoute>} />
-      <Route path="/student/attendance/history/:classCode" element={<ProtectedRoute role="student"><StudentAttendanceClassHistoryPage /></ProtectedRoute>} />
+      <Route path="/student/attendance/history/:classCode" element={<ProtectedRoute role="student"><Navigate to="/student/attendance" replace /></ProtectedRoute>} />
       <Route path="/student/attendance/:scheduleId" element={<ProtectedRoute role="student"><StudentAttendanceDetailPage /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />

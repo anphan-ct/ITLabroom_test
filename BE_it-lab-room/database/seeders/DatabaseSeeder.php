@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\Department;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
@@ -23,26 +24,11 @@ class DatabaseSeeder extends Seeder
     {
         $password = Hash::make('Password@123');
 
-        // Tạo role trước để user đăng nhập đúng luồng auth theo từng quyền.
-        $adminRole = Role::query()->updateOrCreate(
-            ['ten_vai_tro' => 'admin'],
-            ['mo_ta' => 'Quản trị viên hệ thống']
-        );
-
-        $studentRole = Role::query()->updateOrCreate(
-            ['ten_vai_tro' => 'student'],
-            ['mo_ta' => 'Sinh viên']
-        );
-
-        $teacherRole = Role::query()->updateOrCreate(
-            ['ten_vai_tro' => 'teacher'],
-            ['mo_ta' => 'Giảng viên']
-        );
-
-        Role::query()->updateOrCreate(
-            ['ten_vai_tro' => 'technician'],
-            ['mo_ta' => 'Kỹ thuật viên']
-        );
+        // Tạo role với ID cố định để khớp logic validate/xử lý người dùng.
+        $adminRole = $this->upsertRole(1, 'admin', 'Quản trị viên hệ thống');
+        $studentRole = $this->upsertRole(2, 'student', 'Sinh viên');
+        $teacherRole = $this->upsertRole(3, 'teacher', 'Giảng viên');
+        $this->upsertRole(4, 'technician', 'Kỹ thuật viên');
 
         $this->call(DepartmentSeeder::class);
 
@@ -152,5 +138,20 @@ class DatabaseSeeder extends Seeder
         $teacherUser->tokens()->delete();
         $studentUser->tokens()->delete();
         $classMonitorUser->tokens()->delete();
+    }
+
+    private function upsertRole(int $id, string $name, string $description): Role
+    {
+        DB::table('vai_tro')->updateOrInsert(
+            ['id' => $id],
+            [
+                'ten_vai_tro' => $name,
+                'mo_ta' => $description,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
+
+        return Role::query()->findOrFail($id);
     }
 }

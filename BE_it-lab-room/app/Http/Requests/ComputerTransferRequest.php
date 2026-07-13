@@ -23,6 +23,7 @@ class ComputerTransferRequest extends FormRequest
             'ma_phong_moi'   => 'required|integer|exists:phong_may,id',
             'ly_do'          => 'required|string|max:255',
             'ghi_chu'        => 'nullable|string',
+            'xac_nhan_vuot_suc_chua' => 'nullable|boolean',
         ];
     }
 

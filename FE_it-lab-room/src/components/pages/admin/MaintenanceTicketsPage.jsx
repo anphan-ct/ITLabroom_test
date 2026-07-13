@@ -7,6 +7,7 @@ import DataTable from "../../common/DataTable";
 import Pagination from "../../common/Pagination";
 
 import { formatDateDisplay } from "../../../helpers/date-display.helper";
+import { formatCurrencyVND } from "../../../helpers/currency-display.helper";
 import { getMaintenanceTickets, updateMaintenanceTicket } from "../../../services/maintenanceTicket.service";
 import { getUsersFromApi, getRolesFromApi } from "../../../services/user.service";
 import { MAINTENANCE_TYPE_LABELS } from "../../../constants/incident.constant";
@@ -211,7 +212,7 @@ export default function MaintenanceTicketsPage() {
               { key: "ngay_bat_dau", title: "Bắt đầu", render: formatDateDisplay },
               { key: "ngay_ket_thuc", title: "Kết thúc", render: formatDateDisplay },
               { key: "cach_xu_ly", title: "Cách xử lý" },
-              { key: "chi_phi", title: "Chi phí" },
+              { key: "chi_phi", title: "Chi phí", render: (value) => formatCurrencyVND(value) },
               { key: "trang_thai", title: "Trạng thái", isStatus: true },
               {
                 key: "actions",

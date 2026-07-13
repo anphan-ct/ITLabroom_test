@@ -4,7 +4,7 @@ import { fetcher } from "../helpers/fetcher.helper";
 
 export const loanRequestService = {
   getAdminLoanRequests: (trangThai = "all", page = 1, params = {}) => {
-    const query = new URLSearchParams({ trang_thai: trangThai, page, ...params }).toString();
+    const query = new URLSearchParams({ trang_thai: trangThai, page, per_page: 15, ...params }).toString();
 
     return fetcher(`${CONST_APIS.LOAN_REQUESTS.ADMIN_INDEX}?${query}`, {
       method: CONST_METHODS.GET,
@@ -20,15 +20,21 @@ export const loanRequestService = {
       },
     });
   },
-  getTeacherLoanRequests: (page = 1) => {
-    return fetcher(`${CONST_APIS.LOAN_REQUESTS.TEACHER_INDEX}?page=${page}`, {
-      method: CONST_METHODS.GET,
-    });
-  },
-  createTeacherLoanRequest: (data) => {
-    return fetcher(CONST_APIS.LOAN_REQUESTS.TEACHER_STORE, {
+  createAdminLoanRequest: (data) => {
+    return fetcher(CONST_APIS.LOAN_REQUESTS.ADMIN_STORE, {
       method: CONST_METHODS.POST,
       body: data,
+    });
+  },
+  updateAdminLoanRequest: (id, data) => {
+    return fetcher(CONST_APIS.LOAN_REQUESTS.ADMIN_UPDATE(id), {
+      method: CONST_METHODS.PUT,
+      body: data,
+    });
+  },
+  deleteAdminLoanRequest: (id) => {
+    return fetcher(CONST_APIS.LOAN_REQUESTS.ADMIN_DELETE(id), {
+      method: CONST_METHODS.DELETE,
     });
   },
 };

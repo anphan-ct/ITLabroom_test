@@ -83,10 +83,6 @@ export default function Login() {
           <h1 className="text-3xl font-bold text-[#193D87]">
             Đăng nhập
           </h1>
-
-          <p className="mt-2 text-sm text-gray-500">
-            Hệ thống quản lý phòng máy tính Khoa Công nghệ Thông tin
-          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -123,7 +119,7 @@ export default function Login() {
           </button>
         </form>
 
-        <div className="my-6 flex items-center">
+        {/* <div className="my-6 flex items-center">
           <div className="h-px flex-1 bg-gray-300"></div>
           <span className="mx-4 text-sm text-gray-500">Hoặc</span>
           <div className="h-px flex-1 bg-gray-300"></div>
@@ -141,7 +137,7 @@ export default function Login() {
             shape="rectangular"
             useOneTap
           />
-        </div>
+        </div> */}
       </div>
     </div>
   );

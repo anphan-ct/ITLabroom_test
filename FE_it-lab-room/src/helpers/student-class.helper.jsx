@@ -1,4 +1,3 @@
-import { getClasses } from "../data/classesStore";
 import { getAuthSession } from "../services/auth.service";
 
 export function getCurrentStudentClassCode() {
@@ -8,9 +7,7 @@ export function getCurrentStudentClassCode() {
     return "";
   }
 
-  const classroom = getClasses().find((item) => item.id === Number(student.class_id));
-
-  return student.class_code || classroom?.code || "";
+  return student.class_code || "";
 }
 
 export function filterByCurrentStudentClass(items) {

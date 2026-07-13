@@ -1,13 +1,18 @@
 import { useMemo, useState, useEffect } from "react";
-import { CheckCircle, Search, Wrench, ListChecks } from "lucide-react";
+import AppShell from "../../common/AppShell";
+import { CheckCircle, Search, Wrench, ListChecks, RotateCcw, Edit2, Trash2 } from "lucide-react";
 import DataTable from "../../common/DataTable";
+import Pagination from "../../common/Pagination";
 import SectionCard from "../../common/SectionCard";
 import ComputerConditionListModal from "../../common/ComputerConditionListModal";
 import { returnRequestService } from "../../../services/returnRequest.service";
+import { loanRequestService } from "../../../services/loanRequest.service";
+import { Field, SelectInput, TextInput } from "./adminFormControls";
+import { toLocalDatetimeInputValue } from "../../../helpers/date-display.helper";
 
 const STATUS_MAP = {
-  pending: { label: "Chờ xác nhận", color: "text-amber-600 bg-amber-50" },
-  confirmed: { label: "Đã xác nhận", color: "text-green-600 bg-green-50" },
+  pending: { label: "Chưa trả máy", color: "text-amber-600 bg-amber-50" },
+  confirmed: { label: "Đã trả máy", color: "text-green-600 bg-green-50" },
 };
 
 const COMPUTER_STATUS_MAP = {
@@ -17,17 +22,17 @@ const COMPUTER_STATUS_MAP = {
   borrowed: "Đang mượn",
 };
 
-function ReturnConfirmationModal({ request, onClose, onSubmit }) {
+function ReturnConfirmationModal({ request, onClose, onSubmit, isSubmitting = false }) {
   const [conditions, setConditions] = useState({});
   const [notes, setNotes] = useState({});
-  
+
   const loanDetails = request.loan_request?.details || [];
   const borrowedComputers = loanDetails
-    .filter(detail => detail.trang_thai_tra !== "Đã trả")
+    .filter(detail => !detail.da_tra)
     .map(d => d.computer)
     .filter(Boolean);
-  
-  const requiredCount = request.so_luong;
+
+  const requiredCount = request.quantity;
   const [selectedIds, setSelectedIds] = useState([]);
   const [error, setError] = useState("");
 
@@ -68,9 +73,9 @@ function ReturnConfirmationModal({ request, onClose, onSubmit }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50">
       <div className="w-full max-w-3xl rounded-xl bg-white p-6 shadow-xl max-h-[90vh] flex flex-col">
         <h3 className="mb-4 text-xl font-bold text-slate-800">
-          Xác nhận phiếu trả {request.code} (Cần {requiredCount} máy)
+          Trả máy phiếu {request.code} (Cần {requiredCount} máy)
         </h3>
-        
+
         {error && (
           <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
             {error}
@@ -78,7 +83,7 @@ function ReturnConfirmationModal({ request, onClose, onSubmit }) {
         )}
 
         <div className="mb-4 text-sm font-medium text-slate-600">
-            Đã chọn: <span className="mx-1 text-blue-600 font-bold">{selectedIds.length}</span> / {requiredCount}
+          Đã chọn: <span className="mx-1 text-blue-600 font-bold">{selectedIds.length}</span> / {requiredCount}
         </div>
 
         <div className="flex-1 overflow-auto rounded-lg border border-slate-200">
@@ -94,17 +99,17 @@ function ReturnConfirmationModal({ request, onClose, onSubmit }) {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {borrowedComputers.length === 0 ? (
-                <tr><td colSpan="5" className="p-4 text-center">Không có máy nào đang mượn</td></tr>
+                <tr><td colSpan="5" className="p-4 text-center">Không có máy nào đang mượn hoặc đã trả đủ</td></tr>
               ) : borrowedComputers.map(c => {
                 const isSelected = selectedIds.includes(c.id);
                 return (
                   <tr key={c.id} className={isSelected ? "bg-blue-50" : "hover:bg-slate-50"}>
                     <td className="p-3">
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleSelect(c.id)}
-                        disabled={!isSelected && selectedIds.length >= requiredCount}
+                        disabled={isSubmitting || (!isSelected && selectedIds.length >= requiredCount)}
                         className="h-4 w-4 rounded border-slate-300 text-blue-600"
                       />
                     </td>
@@ -146,17 +151,17 @@ function ReturnConfirmationModal({ request, onClose, onSubmit }) {
             </tbody>
           </table>
         </div>
-        
+
         <div className="mt-6 flex justify-end gap-3">
-          <button onClick={onClose} className="rounded-lg bg-slate-100 px-4 py-2 font-medium text-slate-700 hover:bg-slate-200">
+          <button onClick={onClose} disabled={isSubmitting} className="rounded-lg bg-slate-100 px-4 py-2 font-medium text-slate-700 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50">
             Hủy
           </button>
-          <button 
-            onClick={handleSubmit} 
-            disabled={selectedIds.length !== requiredCount}
+          <button
+            onClick={handleSubmit}
+            disabled={selectedIds.length !== requiredCount || isSubmitting}
             className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            Xác nhận Trả
+            {isSubmitting ? "Đang xử lý..." : "Xác nhận trả máy"}
           </button>
         </div>
       </div>
@@ -164,23 +169,162 @@ function ReturnConfirmationModal({ request, onClose, onSubmit }) {
   );
 }
 
+function EditReturnRequestModal({ request, approvedLoans, onClose, onSubmit, isSubmitting }) {
+  const [form, setForm] = useState({
+    loanId: request.ma_phieu_muon || "",
+    returnedAt: toLocalDatetimeInputValue(request.thoi_gian_tra),
+    quantity: request.so_luong || "1",
+    note: request.ghi_chu || ""
+  });
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.loanId || !form.returnedAt || !form.quantity) {
+      setError("Vui lòng điền đầy đủ thông tin.");
+      return;
+    }
+
+    setError("");
+    try {
+      await onSubmit(request.id, {
+        ma_phieu_muon: Number(form.loanId),
+        thoi_gian_tra: form.returnedAt.replace("T", " "),
+        so_luong: Number(form.quantity),
+        ghi_chu: form.note.trim()
+      });
+    } catch (err) {
+      // Ưu tiên lấy message lỗi cụ thể theo field từ payload validate (Laravel trả mảng lỗi trong data.<field>[0])
+      const fieldErrors = err?.payload?.data;
+      const specificMessage = fieldErrors
+        ? Object.values(fieldErrors).flat()[0]
+        : null;
+      setError(specificMessage || err?.message || "Lỗi cập nhật phiếu.");
+    }
+  };
+
+  const selectedLoanForReturn = approvedLoans.find((loanReq) => String(loanReq.id) === String(form.loanId));
+  const minReturnDate = toLocalDatetimeInputValue(selectedLoanForReturn?.ngay_muon) || undefined;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <h3 className="mb-4 text-xl font-bold text-slate-800">
+          Cập nhật phiếu trả {request.code}
+        </h3>
+
+        {error && (
+          <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="grid gap-4">
+          <Field label="Phiếu mượn">
+            <TextInput
+              value={selectedLoanForReturn
+                ? `${selectedLoanForReturn.ma_phieu_muon} (Còn: ${selectedLoanForReturn.so_luong_con_lai + request.so_luong} máy)`
+                : "Không xác định được phiếu mượn gốc"}
+              onChange={() => {}}
+              disabled
+            />
+          </Field>
+          <Field label="Ngày trả">
+            <TextInput type="datetime-local" value={form.returnedAt} onChange={(val) => setForm({ ...form, returnedAt: val })} min={minReturnDate} />
+          </Field>
+          <Field label="Số lượng trả">
+            <TextInput type="number" min="1" value={form.quantity} onChange={(val) => setForm({ ...form, quantity: val })} />
+          </Field>
+          <Field label="Ghi chú">
+            <TextInput value={form.note} onChange={(val) => setForm({ ...form, note: val })} placeholder="Ghi chú..." />
+          </Field>
+
+          <div className="mt-6 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="rounded-lg bg-slate-100 px-4 py-2 font-medium text-slate-700 hover:bg-slate-200">
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isSubmitting ? "Đang xử lý..." : "Lưu thay đổi"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function ReturnRequestsTab() {
   const [receipts, setReceipts] = useState([]);
+  const [approvedLoans, setApprovedLoans] = useState([]);
+  const [assignedLoans, setAssignedLoans] = useState([]);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [confirmingRequest, setConfirmingRequest] = useState(null);
+  const [editingReceipt, setEditingReceipt] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");//Trạng thái lọc
+  const [statusFilter, setStatusFilter] = useState("all");
   const [viewingRequest, setViewingRequest] = useState(null);
+  const [pagination, setPagination] = useState({ current_page: 1, last_page: 1, total: 0 });
 
-  const fetchData = async () => {
+  const [form, setForm] = useState({
+    loanId: "",
+    returnedAt: "",
+    quantity: "1",
+    note: ""
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
+
+  // Tự ẩn thông báo sau 5 giây
+  useEffect(() => {
+    if (!pageSuccess) return;
+    const timer = setTimeout(() => setPageSuccess(""), 5000);
+    return () => clearTimeout(timer);
+  }, [pageSuccess]);
+
+  useEffect(() => {
+    if (!pageError) return;
+    const timer = setTimeout(() => setPageError(""), 5000);
+    return () => clearTimeout(timer);
+  }, [pageError]);
+
+  useEffect(() => {
+    if (!formSuccess) return;
+    const timer = setTimeout(() => setFormSuccess(""), 5000);
+    return () => clearTimeout(timer);
+  }, [formSuccess]);
+
+  useEffect(() => {
+    if (!formError) return;
+    const timer = setTimeout(() => setFormError(""), 5000);
+    return () => clearTimeout(timer);
+  }, [formError]);
+
+  const fetchData = async (page = pagination.current_page) => {
     try {
       setIsLoading(true);
       setPageError("");
-      const res = await returnRequestService.getAdminReturnRequests(statusFilter, 1);
-      if (res.status) {
-        setReceipts(res.data?.data || []);
+      const [returnsRes, loansRes] = await Promise.all([
+        returnRequestService.getAdminReturnRequests(statusFilter, page),
+        loanRequestService.getAdminLoanRequests("all", 1, 200) // Fetch all to get incomplete loans
+      ]);
+      if (returnsRes.status) {
+        setReceipts(returnsRes.data || []);
+        setPagination(returnsRes.pagination || { current_page: 1, last_page: 1, total: 0 });
+      }
+      if (loansRes.status) {
+        const loans = loansRes.data || [];
+        // Only show loans that have been assigned computers and still have some to return
+        setApprovedLoans(loans.filter(l => l.so_luong_con_lai > 0 && l.details?.length > 0));
+        setAssignedLoans(loans.filter(l => l.details?.length > 0));
       }
     } catch (error) {
       setPageError("Lỗi khi tải dữ liệu.");
@@ -190,19 +334,89 @@ export default function ReturnRequestsTab() {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(1);
   }, [statusFilter]);
+
+  const handleDelete = async (receipt) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xoá phiếu trả ${receipt.code} không? Hành động này không thể hoàn tác.`)) {
+      return;
+    }
+    
+    try {
+      setPageError("");
+      setPageSuccess("");
+      await returnRequestService.deleteAdminReturnRequest(receipt.id);
+      setPageSuccess(`Đã xoá phiếu trả ${receipt.code} thành công.`);
+      fetchData();
+    } catch (error) {
+      setPageError(error.message || "Lỗi khi xoá phiếu trả.");
+    }
+  };
 
   const handleAction = async (requestId, action, machineConditions = []) => {
     try {
       setPageError("");
       setPageSuccess("");
+      setIsConfirming(true);
       await returnRequestService.confirmReturnRequest(requestId, action, machineConditions);
-      setPageSuccess(action === "confirm" ? "Đã xác nhận trả máy thành công!" : "Đã chuyển trạng thái Cần kiểm tra.");
+      setPageSuccess(action === "confirm" ? "Trả máy thành công!" : "Đã chuyển trạng thái.");
       setConfirmingRequest(null);
       fetchData(); // reload
     } catch (error) {
       setPageError(error.message || "Đã xảy ra lỗi.");
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  const handleUpdate = async (id, data) => {
+    try {
+      setPageError("");
+      setPageSuccess("");
+      setIsUpdating(true);
+      await returnRequestService.updateAdminReturnRequest(id, data);
+      setPageSuccess("Cập nhật phiếu trả thành công!");
+      setEditingReceipt(null);
+      fetchData();
+    } catch (error) {
+      throw error; // Ném lại lỗi để modal tự hiển thị lỗi validate cụ thể ngay trong form
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const submitForm = async (event) => {
+    event.preventDefault();
+    setFormError("");
+    setFormSuccess("");
+
+    if (!form.loanId || !form.returnedAt || !form.quantity) {
+      setFormError("Vui lòng điền đầy đủ thông tin.");
+      return;
+    }
+
+    const selectedLoan = approvedLoans.find(l => l.id === Number(form.loanId));
+    if (selectedLoan && Number(form.quantity) > selectedLoan.so_luong_con_lai) {
+      setFormError(`Số lượng trả vượt quá số máy chưa trả hoặc đang chờ xác nhận (còn lại: ${selectedLoan.so_luong_con_lai} máy).`);
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await returnRequestService.createAdminReturnRequest({
+        ma_phieu_muon: Number(form.loanId),
+        thoi_gian_tra: form.returnedAt.replace("T", " "),
+        so_luong: Number(form.quantity),
+        ghi_chu: form.note.trim()
+      });
+
+      setFormSuccess("Tạo phiếu trả máy thành công!");
+      setForm({ loanId: "", returnedAt: "", quantity: "1", note: "" });
+      fetchData();
+    } catch (error) {
+      setFormError(error.message || "Lỗi tạo phiếu.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -212,129 +426,228 @@ export default function ReturnRequestsTab() {
     return receipts.map(req => ({
       ...req,
       code: req.ma_phieu_tra,
-      loanCode: req.ma_phieu_muon || "N/A",
-      teacher: req.nguoi_muon || req.ten_giang_vien || "N/A",
+      loanCode: req.loan_request?.ma_phieu_muon || req.ma_phieu_muon || "N/A",
+      teacher: req.loan_request?.nguoi_muon || "N/A",
       returnedAt: new Date(req.thoi_gian_tra).toLocaleString("vi-VN"),
       quantity: req.so_luong,
       note: req.ghi_chu,
       statusLabel: STATUS_MAP[req.trang_thai]?.label || req.trang_thai,
     })).filter((receipt) => {
       const searchContent = [
-        receipt.code, receipt.loanCode, receipt.teacher, 
+        receipt.code, receipt.loanCode, receipt.teacher,
         receipt.returnedAt, receipt.quantity, receipt.note, receipt.statusLabel
       ].join(" ").toLowerCase();
       return !keyword || searchContent.includes(keyword);
     });
   }, [receipts, searchKeyword]);
 
+  const selectedLoanForReturn = approvedLoans.find(l => String(l.id) === String(form.loanId));
+  const minReturnDate = toLocalDatetimeInputValue(selectedLoanForReturn?.ngay_muon) || undefined;
+
   return (
-    <div className="space-y-6">
-      {confirmingRequest && (
-        <ReturnConfirmationModal 
-          request={confirmingRequest}
-          onClose={() => setConfirmingRequest(null)}
-          onSubmit={handleAction}
-        />
-      )}
+    <AppShell
+      role="admin"
+      title="Trả máy"
+      subtitle="Kiểm tra và tiếp nhận máy trả lại"
+    >
+    <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+      <SectionCard title="Tạo phiếu trả">
+        <form onSubmit={submitForm} className="grid gap-4">
+          <Field label="Phiếu mượn">
+            <SelectInput value={form.loanId} onChange={(val) => setForm({ ...form, loanId: val })}>
+              <option value="">Chọn phiếu mượn</option>
+              {approvedLoans.map((request) => {
+                const remaining = request.so_luong_con_lai;
+                if (remaining === 0) {
+                  return <option key={request.id} value={request.id} disabled>{request.ma_phieu_muon} (Đã trả đủ)</option>;
+                }
+                return <option key={request.id} value={request.id}>{request.ma_phieu_muon} (Còn: {remaining} máy)</option>;
+              })}
+            </SelectInput>
+          </Field>
+          <Field label="Ngày trả">
+            <TextInput type="datetime-local" value={form.returnedAt} onChange={(val) => setForm({ ...form, returnedAt: val })} min={minReturnDate} />
+          </Field>
+          <Field label="Số lượng trả">
+            <TextInput type="number" min="1" value={form.quantity} onChange={(val) => setForm({ ...form, quantity: val })} />
+          </Field>
+          <Field label="Ghi chú">
+            <TextInput value={form.note} onChange={(val) => setForm({ ...form, note: val })} placeholder="Ghi chú..." />
+          </Field>
 
-      {pageError && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-          {pageError}
-        </div>
-      )}
-      {pageSuccess && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-          {pageSuccess}
-        </div>
-      )}
-
-      <SectionCard
-        title="Danh sách phiếu trả chờ xác nhận"
-        rightAction={
-          <div className="flex items-center gap-3">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-600 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="pending">Chờ xác nhận</option>
-              <option value="confirmed">Đã xác nhận</option>
-              <option value="all">Tất cả</option>
-            </select>
-            <div className="relative">
-              <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="search"
-                value={searchKeyword}
-                onChange={(event) => setSearchKeyword(event.target.value)}
-                placeholder="Tìm phiếu trả"
-                className="w-full min-w-[240px] rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 sm:w-72"
-              />
+          {formError && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+              {formError}
             </div>
+          )}
+          {formSuccess && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+              {formSuccess}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="inline-flex w-fit items-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-70"
+          >
+            <RotateCcw size={16} />
+            {isSubmitting ? "Đang xử lý..." : "Tạo phiếu trả"}
+          </button>
+        </form>
+      </SectionCard>
+
+      <div className="space-y-6">
+        {confirmingRequest && (
+          <ReturnConfirmationModal
+            request={confirmingRequest}
+            onClose={() => setConfirmingRequest(null)}
+            onSubmit={handleAction}
+            isSubmitting={isConfirming}
+          />
+        )}
+
+        {editingReceipt && (
+          <EditReturnRequestModal
+            request={editingReceipt}
+            approvedLoans={assignedLoans}
+            onClose={() => setEditingReceipt(null)}
+            onSubmit={handleUpdate}
+            isSubmitting={isUpdating}
+          />
+        )}
+
+        {pageError && (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+            {pageError}
           </div>
-        }
-      >
-        <DataTable
-          isLoading={isLoading}
-          columns={[
-            { key: "code", title: "Mã phiếu" },
-            { key: "loanCode", title: "Phiếu mượn" },
-            { key: "teacher", title: "Giảng viên" },
-            { key: "returnedAt", title: "Ngày trả" },
-            { key: "quantity", title: "Số lượng" },
-            { key: "note", title: "Ghi chú" },
-            { 
-              key: "trang_thai", 
-              title: "Trạng thái",
-              render: (_, item) => {
-                const style = STATUS_MAP[item.trang_thai] || { label: item.trang_thai, color: "text-slate-600 bg-slate-50" };
-                return (
-                  <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${style.color}`}>
-                    {style.label}
+        )}
+        {pageSuccess && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+            {pageSuccess}
+          </div>
+        )}
+
+        <SectionCard
+          title="Danh sách phiếu trả chờ xác nhận"
+          rightAction={
+            <div className="flex items-center gap-3">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-600 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="pending">Chưa trả máy</option>
+                <option value="confirmed">Đã trả máy</option>
+                <option value="all">Tất cả</option>
+              </select>
+              <div className="relative">
+                <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="search"
+                  value={searchKeyword}
+                  onChange={(event) => setSearchKeyword(event.target.value)}
+                  placeholder="Tìm phiếu trả"
+                  className="w-full min-w-[200px] rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 sm:w-64"
+                />
+              </div>
+            </div>
+          }
+        >
+          <DataTable
+            isLoading={isLoading}
+            columns={[
+              { key: "code", title: "Mã phiếu trả" },
+              { key: "loanCode", title: "Phiếu mượn" },
+              { key: "teacher", title: "Người trả" },
+              { key: "returnedAt", title: "Ngày trả" },
+              { key: "quantity", title: "Số lượng" },
+              {
+                key: "note",
+                title: "Ghi chú",
+                render: (_, item) => (
+                  <span
+                    className="block max-w-[180px] truncate"
+                    title={item.note || ""}
+                  >
+                    {item.note || "—"}
                   </span>
-                );
-              }
-            },
-            {
-              key: "actions",
-              title: "Thao tác",
-              render: (_, receipt) => {
-                if (receipt.trang_thai === "pending") {
+                ),
+              },
+              {
+                key: "trang_thai",
+                title: "Trạng thái",
+                render: (_, item) => {
+                  const style = STATUS_MAP[item.trang_thai] || { label: item.trang_thai, color: "text-slate-600 bg-slate-50" };
                   return (
-                    <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${style.color}`}>
+                      {style.label}
+                    </span>
+                  );
+                }
+              },
+              {
+                key: "actions",
+                title: "Thao tác",
+                render: (_, receipt) => {
+                  if (receipt.trang_thai === "pending") {
+                    return (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingRequest(receipt)}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-200"
+                        >
+                          <CheckCircle size={14} />
+                          Trả máy
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingReceipt(receipt)}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700 transition hover:bg-blue-200"
+                        >
+                          <Edit2 size={14} />
+                          Cập nhật
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(receipt)}
+                          className="inline-flex items-center justify-center rounded-lg bg-rose-100 p-1.5 text-rose-700 transition hover:bg-rose-200"
+                          title="Xóa phiếu"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  if (receipt.trang_thai === "confirmed") {
+                    return (
                       <button
                         type="button"
-                        onClick={() => setConfirmingRequest(receipt)}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-200"
+                        onClick={() => setViewingRequest(receipt)}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700 transition hover:bg-blue-200"
                       >
-                        <CheckCircle size={14} />
-                        Xác nhận
+                        <ListChecks size={14} />
+                        Chi tiết máy
                       </button>
-                    </div>
-                  );
-                }
-                
-                if (receipt.trang_thai === "confirmed") {
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => setViewingRequest(receipt)}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700 transition hover:bg-blue-200"
-                    >
-                      <ListChecks size={14} />
-                      Xem chi tiết máy
-                    </button>
-                  );
-                }
+                    );
+                  }
 
-                return <span className="text-slate-400 font-medium text-xs uppercase">—</span>;
+                  return <span className="text-slate-400 font-medium text-xs uppercase">—</span>;
+                },
               },
-            },
-          ]}
-          data={filteredReceipts}
-          emptyText="Chưa có phiếu trả cần xác nhận"
-        />
-      </SectionCard>
+            ]}
+            data={filteredReceipts}
+            emptyText="Chưa có phiếu trả"
+          />
+          <Pagination
+            currentPage={pagination.current_page}
+            lastPage={pagination.last_page}
+            onPageChange={(page) => fetchData(page)}
+          />
+        </SectionCard>
+      </div>
 
       <ComputerConditionListModal
         open={!!viewingRequest}
@@ -350,5 +663,6 @@ export default function ReturnRequestsTab() {
         })) || []}
       />
     </div>
+    </AppShell>
   );
 }

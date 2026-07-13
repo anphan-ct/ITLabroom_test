@@ -23,7 +23,7 @@ import {
 
 const statusLabels = {
   present: "Có mặt",
-  late: "Đi trễ",
+  absent: "Vắng mặt",
   absent: "Chưa điểm danh",
 };
 
@@ -350,17 +350,21 @@ export default function TeacherScheduleAttendancePage() {
             {
               key: "actions",
               title: "Thao tác",
-              render: (_, row) => (
-                <button
-                  type="button"
-                  onClick={() => handleOpenCheckInModal(row)}
-                  disabled={!canTeacherCheckIn || checkingInStudentId === row.id}
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-                >
-                  <ClipboardCheck size={16} />
-                  {row.attendanceStatus === "present" ? "Cập nhật" : "Điểm danh"}
-                </button>
-              ),
+              render: (_, row) => {
+                const hasCheckedIn = row.attendanceStatus === "present";
+
+                return (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenCheckInModal(row)}
+                    disabled={hasCheckedIn || !canTeacherCheckIn || checkingInStudentId === row.id}
+                    className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  >
+                    <ClipboardCheck size={16} />
+                    {hasCheckedIn ? "Đã điểm danh" : "Điểm danh"}
+                  </button>
+                );
+              },
             },
           ]}
           data={filteredStudents}

@@ -77,13 +77,16 @@ class ComputerImportController extends Controller
                     })
                     ->max() ?? 0;
 
+                // Dùng hàm sinh tên máy dùng chung để đảm bảo đồng nhất với chức năng Điều chuyển máy.
+                $tenMayList = Computer::generateTenMaySequence($phongMay->id, $tenPhong, (int) $data['so_luong']);
+
                 $maPhieuNhapNumber = str_replace('PN-', '', $phieuNhap->ma_phieu_nhap);
 
                 for ($i = 1; $i <= (int) $data['so_luong']; $i++) {
                     $soThuTuMay = str_pad((string) $i, 3, '0', STR_PAD_LEFT);
                     $viTriMay = str_pad((string) ($soViTriLonNhatTrongPhong + $i), 2, '0', STR_PAD_LEFT);
                     $maMay = 'PC-'.$maPhieuNhapNumber.'-'.$soThuTuMay;
-                    $tenMay = $tenPhong.'-'.$viTriMay;
+                    $tenMay = $tenMayList[$i - 1];
 
                     if (Computer::where('ma_may', $maMay)->exists()) {
                         throw ValidationException::withMessages([

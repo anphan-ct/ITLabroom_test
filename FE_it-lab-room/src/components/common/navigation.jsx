@@ -70,32 +70,14 @@ export const roleMenus = {
       label: "Mượn & Trả máy",
       icon: FileText,
       children: [
-        { to: "/admin/loan-return/loans", label: "Duyệt mượn máy", icon: FileText },
-        { to: "/admin/loan-return/returns", label: "Xác nhận trả máy", icon: RotateCcw },
+        { to: "/admin/loan-return/loans", label: "Mượn máy", icon: FileText },
+        { to: "/admin/loan-return/returns", label: "Trả máy", icon: RotateCcw },
       ],
     },
   ],
   teacher: [
     { to: "/teacher/schedules", label: "Lịch giảng dạy", icon: CalendarDays },
     { to: "/teacher/attendance", label: "Điểm danh", icon: QrCode },
-    {
-      to: "/teacher/loan-requests",
-      label: "Mượn máy",
-      icon: FileText,
-      children: [
-        { to: "/teacher/loan-requests", label: "Phiếu mượn", icon: FileText },
-        { to: "/teacher/loan-details", label: "Chi tiết mượn", icon: ClipboardList },
-      ],
-    },
-    {
-      to: "/teacher/computer-returns",
-      label: "Trả máy",
-      icon: RotateCcw,
-      children: [
-        { to: "/teacher/computer-returns", label: "Phiếu trả máy", icon: RotateCcw },
-        { to: "/teacher/computer-return-details", label: "Chi tiết trả", icon: ClipboardList },
-      ],
-    },
     { to: "/teacher/incidents", label: "Báo sự cố", icon: AlertTriangle },
     { to: "/teacher/bookings", label: "Đăng ký phòng", icon: ClipboardList },
   ],

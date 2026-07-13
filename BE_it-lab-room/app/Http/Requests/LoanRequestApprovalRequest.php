@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use App\Models\Computer;
-use App\Enums\LoanRequestStatus;
 use App\Enums\ComputerStatus;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
@@ -34,8 +33,8 @@ class LoanRequestApprovalRequest extends FormRequest
             $loanRequest = $this->route('loanRequest');
             if (!$loanRequest) return;
 
-            if ($loanRequest->trang_thai !== LoanRequestStatus::PENDING->value) {
-                $validator->errors()->add('loanRequest', 'Phiếu mượn này đã được xử lý.');
+            if ($loanRequest->details()->exists()) {
+                $validator->errors()->add('loanRequest', 'Phiếu mượn này đã được cấp máy.');
                 return;
             }
 

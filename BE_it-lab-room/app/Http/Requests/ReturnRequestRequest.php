@@ -9,6 +9,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use App\Enums\LoanRequestStatus;
+
 class ReturnRequestRequest extends FormRequest
 {
     public function authorize(): bool
@@ -32,11 +33,28 @@ class ReturnRequestRequest extends FormRequest
             $loanRequest = LoanRequest::find($this->input('ma_phieu_muon'));
             if (!$loanRequest) return;
 
-            if ($loanRequest->trang_thai !== LoanRequestStatus::APPROVED->value) {
-                $validator->errors()->add('ma_phieu_muon', 'Chỉ có thể tạo phiếu trả cho phiếu mượn đã được duyệt.');
+            if (!$loanRequest->details()->exists()) {
+                $validator->errors()->add('ma_phieu_muon', 'Chỉ có thể tạo phiếu trả cho phiếu mượn đã được cấp máy.');
                 return;
             }
+
+            $thoiGianTra = $this->input('thoi_gian_tra');
+            if ($thoiGianTra && $loanRequest->ngay_muon) {
+                $ngayMuon = \Carbon\Carbon::parse($loanRequest->ngay_muon);
+                $ngayTra = \Carbon\Carbon::parse($thoiGianTra);
+                if ($ngayTra->lt($ngayMuon)) {
+                    $validator->errors()->add(
+                        'thoi_gian_tra',
+                        'Ngày trả không được sớm hơn ngày mượn (' . $ngayMuon->format('d/m/Y H:i') . ').'
+                    );
+                }
+            }
+
             $remaining = $loanRequest->so_luong_con_lai;
+            $returnRequest = $this->route('returnRequest');
+            if ($returnRequest && $returnRequest->ma_phieu_muon == $loanRequest->id) {
+                $remaining += $returnRequest->so_luong;
+            }
 
             if ($this->input('so_luong') > $remaining) {
                 $validator->errors()->add('so_luong', "Số lượng trả vượt quá số máy chưa trả hoặc đang chờ duyệt ({$remaining} máy).");
