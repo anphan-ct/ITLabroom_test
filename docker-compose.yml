@@ -21,11 +21,11 @@ services:
       APP_DEBUG: "true"
       APP_URL: http://localhost:8000
       DB_CONNECTION: mysql
-      DB_HOST: mysql
+      DB_HOST: db.rokia.top
       DB_PORT: 3306
-      DB_DATABASE: it_lab_room
-      DB_USERNAME: it_lab_room
-      DB_PASSWORD: it_lab_room_password
+      DB_DATABASE: qlpm
+      DB_USERNAME: phuc
+      DB_PASSWORD: hoangphuc@2026
       REDIS_CLIENT: phpredis
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -34,8 +34,6 @@ services:
       SESSION_DRIVER: database
       COMPOSER_CACHE_DIR: /tmp/composer-cache
     depends_on:
-      mysql:
-        condition: service_healthy
       redis:
         condition: service_healthy
     networks:

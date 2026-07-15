@@ -90,7 +90,6 @@ function findWeekByDate(weeks, dateValue) {
 }
 
 function getInitialFormFromOptions(options) {
-  const firstWeek = options.weeks[0];
   const firstCourseSection = options.course_sections[0];
   const firstRoomId = firstCourseSection?.room_id || options.rooms[0]?.id || "";
   const firstTeacherId =
@@ -98,13 +97,10 @@ function getInitialFormFromOptions(options) {
 
   return {
     ...initialForm,
-    studyDate: firstWeek?.start_date || "",
-    day: getDayLabel(firstWeek?.start_date),
     roomId: String(firstRoomId),
     classId: String(firstCourseSection?.class_id || ""),
     courseSectionId: String(firstCourseSection?.id || ""),
     teacherId: String(firstTeacherId),
-    weekId: String(firstWeek?.id || ""),
   };
 }
 
