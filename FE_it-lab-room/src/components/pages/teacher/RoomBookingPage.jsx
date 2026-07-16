@@ -4,11 +4,13 @@ import {
   CalendarCheck,
   ClipboardList,
   Monitor,
+  Zap,
 } from "lucide-react";
 import AppShell from "../../common/AppShell";
 import SectionCard from "../../common/SectionCard";
 import {
   cancelTeacherRoomBookingFromApi,
+  createQuickTeacherRoomBookingFromApi,
   createTeacherRoomBookingFromApi,
   getAvailableRoomsFromApi,
   getTeacherRoomBookingsFromApi,
@@ -40,21 +42,28 @@ function formatDate(date) {
   return new Intl.DateTimeFormat("vi-VN").format(new Date(date));
 }
 
+function getTodayInputValue() {
+  const today = new Date();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `${today.getFullYear()}-${month}-${day}`;
+}
+
 export default function RoomBookingPage() {
   const location = useLocation();
 
   const [activeView, setActiveView] = useState(
     location.state?.activeView || "booking"
   );
-  const [bookingDate, setBookingDate] = useState(() =>
-    new Date().toISOString().slice(0, 10)
-  );
+  const [bookingDate, setBookingDate] = useState(() => getTodayInputValue());
   const [lessonStart, setLessonStart] = useState(1);
   const [lessonEnd, setLessonEnd] = useState(3);
   const [rooms, setRooms] = useState([]);
   const [selectedWeek, setSelectedWeek] = useState(null);
   const [bookingRequests, setBookingRequests] = useState([]);
   const [selectedRoom, setSelectedRoom] = useState(null);
+  const [bookingMode, setBookingMode] = useState("normal");
   const [purpose, setPurpose] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,6 +80,8 @@ export default function RoomBookingPage() {
       Number(lessonEnd) > 12
     );
   }, [lessonEnd, lessonStart]);
+
+  const isTodayBooking = bookingDate === getTodayInputValue();
 
   const roomStatuses = useMemo(() => {
     return rooms.map((room) => {
@@ -143,12 +154,18 @@ export default function RoomBookingPage() {
     setter(Number(event.target.value));
   };
 
-  const handleRegisterRoom = (room) => {
+  const handleRegisterRoom = (room, mode = "normal") => {
     if (invalidLessonRange || room.trang_thai === "maintenance") {
       return;
     }
 
+    if (mode === "quick" && !isTodayBooking) {
+      setError("Mượn phòng nhanh chỉ áp dụng cho ngày hiện tại.");
+      return;
+    }
+
     setSelectedRoom(room);
+    setBookingMode(mode);
     setPurpose("");
     setModalError("");
   };
@@ -157,6 +174,7 @@ export default function RoomBookingPage() {
     if (isSubmitting) return;
 
     setSelectedRoom(null);
+    setBookingMode("normal");
     setPurpose("");
     setModalError("");
   };
@@ -173,17 +191,28 @@ export default function RoomBookingPage() {
     setSuccessMessage("");
 
     try {
-      await createTeacherRoomBookingFromApi({
+      const payload = {
         ma_phong: selectedRoom.id,
         ngay_dat: bookingDate,
         so_tiet_bat_dau: Number(lessonStart),
         so_tiet_ket_thuc: Number(lessonEnd),
         muc_dich: purpose.trim(),
-      });
+      };
+
+      if (bookingMode === "quick") {
+        await createQuickTeacherRoomBookingFromApi(payload);
+      } else {
+        await createTeacherRoomBookingFromApi(payload);
+      }
 
       setSelectedRoom(null);
+      setBookingMode("normal");
       setPurpose("");
-      setSuccessMessage("Yêu cầu đặt phòng đã được gửi. Hãy chờ admin duyệt.");
+      setSuccessMessage(
+        bookingMode === "quick"
+          ? "Mượn phòng nhanh thành công. Phòng đã được giữ lịch ngay."
+          : "Yêu cầu đặt phòng đã được gửi. Hãy chờ admin duyệt."
+      );
       await loadInitialData();
     } catch (apiError) {
       setModalError(
@@ -491,6 +520,8 @@ export default function RoomBookingPage() {
                     ) : (
                       roomStatuses.map((room) => {
                         const isAvailable = room.status === "Trống";
+                        const canQuickBorrow =
+                          isAvailable && !invalidLessonRange && isTodayBooking;
 
                         return (
                           <tr
@@ -533,19 +564,40 @@ export default function RoomBookingPage() {
                             </td>
 
                             <td className="whitespace-nowrap px-4 py-3 text-right">
-                              <button
-                                type="button"
-                                disabled={!isAvailable || invalidLessonRange}
-                                onClick={() => handleRegisterRoom(room)}
-                                className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${
-                                  isAvailable && !invalidLessonRange
-                                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                                    : "cursor-not-allowed bg-slate-100 text-slate-400"
-                                }`}
-                              >
-                                <CalendarCheck size={16} />
-                                Đăng ký
-                              </button>
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  disabled={!isAvailable || invalidLessonRange}
+                                  onClick={() => handleRegisterRoom(room)}
+                                  className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${
+                                    isAvailable && !invalidLessonRange
+                                      ? "bg-blue-600 text-white hover:bg-blue-700"
+                                      : "cursor-not-allowed bg-slate-100 text-slate-400"
+                                  }`}
+                                >
+                                  <CalendarCheck size={16} />
+                                  Đăng ký
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={!canQuickBorrow}
+                                  onClick={() => handleRegisterRoom(room, "quick")}
+                                  className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${
+                                    canQuickBorrow
+                                      ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                                      : "cursor-not-allowed bg-slate-100 text-slate-400"
+                                  }`}
+                                  title={
+                                    isTodayBooking
+                                      ? "Mượn nhanh"
+                                      : "Mượn nhanh chỉ áp dụng cho ngày hiện tại"
+                                  }
+                                >
+                                  <Zap size={16} />
+                                  Mượn nhanh
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -563,7 +615,8 @@ export default function RoomBookingPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 py-6">
           <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-2xl">
             <h2 className="text-xl font-bold text-[#193D87]">
-              Đăng ký {selectedRoom.code || selectedRoom.ma_phong}
+              {bookingMode === "quick" ? "Mượn nhanh" : "Đăng ký"}{" "}
+              {selectedRoom.code || selectedRoom.ma_phong}
             </h2>
 
             <p className="mt-4 text-sm font-semibold text-slate-700">
@@ -603,9 +656,17 @@ export default function RoomBookingPage() {
                 type="button"
                 onClick={submitBookingRequest}
                 disabled={isSubmitting || !purpose.trim()}
-                className="rounded-lg bg-[#193D87] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-900/20 hover:bg-[#102752] disabled:cursor-not-allowed disabled:bg-slate-300"
+                className={`rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-lg disabled:cursor-not-allowed disabled:bg-slate-300 ${
+                  bookingMode === "quick"
+                    ? "bg-emerald-600 shadow-emerald-900/20 hover:bg-emerald-700"
+                    : "bg-[#193D87] shadow-blue-900/20 hover:bg-[#102752]"
+                }`}
               >
-                {isSubmitting ? "Đang gửi..." : "Xác nhận"}
+                {isSubmitting
+                  ? "Đang gửi..."
+                  : bookingMode === "quick"
+                  ? "Xác nhận mượn nhanh"
+                  : "Xác nhận"}
               </button>
             </div>
           </div>

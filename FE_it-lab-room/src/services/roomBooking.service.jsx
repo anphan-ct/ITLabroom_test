@@ -27,6 +27,13 @@ export function createTeacherRoomBookingFromApi(payload) {
   });
 }
 
+export function createQuickTeacherRoomBookingFromApi(payload) {
+  return fetcher(CONST_APIS.TEACHER_ROOM_BOOKINGS.QUICK_STORE, {
+    method: CONST_METHODS.POST,
+    body: payload,
+  });
+}
+
 export function getAvailableRoomsFromApi(params) {
   const query = new URLSearchParams(params);
 

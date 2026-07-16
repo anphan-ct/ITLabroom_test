@@ -1,6 +1,102 @@
-import { LogOut, UserRound } from "lucide-react";
+import {
+  AlertTriangle,
+  Bell,
+  CalendarClock,
+  CheckCircle2,
+  LogOut,
+  Wrench,
+  UserRound,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+
+const notificationTypes = {
+  incident: {
+    icon: AlertTriangle,
+    className: "bg-rose-100 text-rose-600",
+  },
+  booking: {
+    icon: CalendarClock,
+    className: "bg-blue-100 text-blue-600",
+  },
+  maintenance: {
+    icon: Wrench,
+    className: "bg-amber-100 text-amber-600",
+  },
+  success: {
+    icon: CheckCircle2,
+    className: "bg-emerald-100 text-emerald-600",
+  },
+};
+
+const defaultNotifications = [
+  {
+    id: 1,
+    type: "incident",
+    title: "Báo cáo sự cố mới",
+    description: "Giảng viên vừa gửi báo cáo lỗi máy tại phòng F7.1.",
+    time: "5 phút",
+    unread: true,
+  },
+  {
+    id: 2,
+    type: "booking",
+    title: "Mượn phòng nhanh",
+    description: "Phòng F7.2 đã được mượn nhanh cho tiết 1 - 3 hôm nay.",
+    time: "20 phút",
+    unread: true,
+  },
+  {
+    id: 3,
+    type: "maintenance",
+    title: "Phiếu bảo trì đang xử lý",
+    description: "Máy PC-11-002 được chuyển sang trạng thái bảo trì.",
+    time: "1 giờ",
+    unread: false,
+  },
+  {
+    id: 4,
+    type: "success",
+    title: "Đăng ký phòng đã duyệt",
+    description: "Yêu cầu sử dụng phòng F7.1 đã được xác nhận.",
+    time: "Hôm qua",
+    unread: false,
+  },
+];
+
+function NotificationItem({ notification }) {
+  const config = notificationTypes[notification.type] || notificationTypes.success;
+  const Icon = config.icon;
+
+  return (
+    <button
+      type="button"
+      className="grid w-full grid-cols-[44px_minmax(0,1fr)_12px] gap-3 rounded-lg px-3 py-3 text-left transition hover:bg-slate-100"
+    >
+      <span className={`flex h-11 w-11 items-center justify-center rounded-full ${config.className}`}>
+        <Icon size={20} />
+      </span>
+
+      <span className="min-w-0">
+        <span className="block text-sm font-bold text-slate-900">
+          {notification.title}
+        </span>
+        <span className="mt-1 line-clamp-2 block text-sm leading-5 text-slate-600">
+          {notification.description}
+        </span>
+        <span className="mt-1 block text-xs font-bold text-[#193D87]">
+          {notification.time}
+        </span>
+      </span>
+
+      <span className="flex items-center justify-center">
+        {notification.unread ? (
+          <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+        ) : null}
+      </span>
+    </button>
+  );
+}
 
 export default function Header({
   onMenuToggle,
@@ -11,12 +107,27 @@ export default function Header({
   showLogout = false,
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [notificationTab, setNotificationTab] = useState("all");
   const accountRef = useRef(null);
+  const notificationRef = useRef(null);
+
+  const unreadCount = defaultNotifications.filter((item) => item.unread).length;
+  const visibleNotifications = notificationTab === "unread"
+    ? defaultNotifications.filter((item) => item.unread)
+    : defaultNotifications;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (accountRef.current && !accountRef.current.contains(event.target)) {
         setAccountOpen(false);
+      }
+
+      if (
+        notificationRef.current &&
+        !notificationRef.current.contains(event.target)
+      ) {
+        setNotificationOpen(false);
       }
     };
 
@@ -68,7 +179,95 @@ export default function Header({
         </Link>
 
         {showLogout && (
-          <div ref={accountRef} className="relative ml-auto hidden min-w-0 md:block">
+          <div className="ml-auto hidden min-w-0 items-center gap-2 md:flex">
+            <div ref={notificationRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setNotificationOpen((open) => !open)}
+                className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+                aria-label="Mở thông báo"
+                aria-expanded={notificationOpen}
+                aria-haspopup="dialog"
+              >
+                <Bell size={20} />
+                {unreadCount > 0 ? (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-xs font-bold text-white ring-2 ring-[#193D87]">
+                    {unreadCount}
+                  </span>
+                ) : null}
+              </button>
+
+              {notificationOpen && (
+                <div className="absolute right-0 top-full mt-3 w-[min(92vw,420px)] overflow-hidden rounded-lg border border-slate-200 bg-white text-slate-900 shadow-2xl">
+                  <div className="border-b border-slate-100 px-5 pb-3 pt-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <h2 className="text-2xl font-bold text-slate-950">
+                        Thông báo
+                      </h2>
+                      <button
+                        type="button"
+                        className="rounded-full px-2 py-1 text-lg font-bold text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                        aria-label="Tùy chọn thông báo"
+                      >
+                        ...
+                      </button>
+                    </div>
+
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setNotificationTab("all")}
+                        className={`rounded-full px-4 py-2 text-sm font-bold ${
+                          notificationTab === "all"
+                            ? "bg-blue-100 text-[#193D87]"
+                            : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        Tất cả
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNotificationTab("unread")}
+                        className={`rounded-full px-4 py-2 text-sm font-bold ${
+                          notificationTab === "unread"
+                            ? "bg-blue-100 text-[#193D87]"
+                            : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        Chưa đọc
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="max-h-[min(70vh,520px)] overflow-y-auto p-2">
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <h3 className="text-base font-bold text-slate-800">Mới</h3>
+                      <button
+                        type="button"
+                        className="text-sm font-bold text-[#193D87] hover:underline"
+                      >
+                        Xem tất cả
+                      </button>
+                    </div>
+
+                    {visibleNotifications.length > 0 ? (
+                      visibleNotifications.map((notification) => (
+                        <NotificationItem
+                          key={notification.id}
+                          notification={notification}
+                        />
+                      ))
+                    ) : (
+                      <div className="px-4 py-10 text-center text-sm font-semibold text-slate-500">
+                        Không có thông báo chưa đọc.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+          <div ref={accountRef} className="relative min-w-0">
             <button
               type="button"
               onClick={() => setAccountOpen((open) => !open)}
@@ -105,6 +304,7 @@ export default function Header({
                 </button>
               </div>
             )}
+          </div>
           </div>
         )}
 

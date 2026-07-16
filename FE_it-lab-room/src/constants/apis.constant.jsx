@@ -88,6 +88,7 @@ export const CONST_APIS = {
   TEACHER_ROOM_BOOKINGS: {
     INDEX: "/api/teacher/room-bookings",
     STORE: "/api/teacher/room-bookings",
+    QUICK_STORE: "/api/teacher/room-bookings/quick",
     AVAILABILITY: "/api/teacher/room-bookings/availability",
     CANCEL: (id) => `/api/teacher/room-bookings/${id}/cancel`,
   },

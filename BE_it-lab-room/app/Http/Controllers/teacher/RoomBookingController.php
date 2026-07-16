@@ -116,6 +116,27 @@ class RoomBookingController extends Controller
 
     public function store(TeacherRoomBookingRequest $request)
     {
+        return $this->createBooking($request, 'pending', 'Gửi yêu cầu đặt phòng thành công');
+    }
+
+    public function quickStore(TeacherRoomBookingRequest $request)
+    {
+        if ($request->validated('ngay_dat') !== now()->toDateString()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Mượn phòng nhanh chỉ áp dụng cho ngày hiện tại.',
+                'error_code' => 422,
+                'data' => [
+                    'ngay_dat' => ['Mượn phòng nhanh chỉ áp dụng cho ngày hiện tại.'],
+                ],
+            ], 422);
+        }
+
+        return $this->createBooking($request, 'approved', 'Mượn phòng nhanh thành công');
+    }
+
+    private function createBooking(TeacherRoomBookingRequest $request, string $approvalStatus, string $successMessage)
+    {
         try {
             $data = $request->validated();
             $teacher = $request->user()?->teacher;
@@ -124,7 +145,7 @@ class RoomBookingController extends Controller
                 return $this->forbiddenResponse();
             }
 
-            $result = DB::transaction(function () use ($data, $teacher) {
+            $result = DB::transaction(function () use ($data, $teacher, $approvalStatus) {
                 $room = Room::query()->whereKey($data['ma_phong'])->lockForUpdate()->firstOrFail();
 
                 if (str_contains(mb_strtolower($room->ten_phong ?? ''), 'kho')) {
@@ -146,7 +167,7 @@ class RoomBookingController extends Controller
                     'tiet_bat_dau' => $data['so_tiet_bat_dau'],
                     'tiet_ket_thuc' => $data['so_tiet_ket_thuc'],
                     'muc_dich' => $data['muc_dich'],
-                    'trang_thai_duyet' => 'pending',
+                    'trang_thai_duyet' => $approvalStatus,
                 ]);
             }, 3);
 
@@ -163,7 +184,7 @@ class RoomBookingController extends Controller
 
             return response()->json([
                 'status' => true,
-                'message' => 'Gửi yêu cầu đặt phòng thành công',
+                'message' => $successMessage,
                 'error_code' => 201,
                 'data' => new RoomBookingResource($result),
             ], 201);

@@ -63,6 +63,21 @@ class ComputerImportController extends Controller
                     ->lockForUpdate()
                     ->findOrFail($data['ma_phong']);
 
+                $soMayHienCo = Computer::query()
+                    ->where('ma_phong', $phongMay->id)
+                    ->count();
+                $soLuongNhap = (int) $data['so_luong'];
+                $soChoConTrong = max(0, (int) $phongMay->suc_chua - $soMayHienCo);
+
+                // Kiểm tra sức chứa phòng/kho trước khi sinh máy để tránh nhập vượt số chỗ còn trống.
+                if ($soMayHienCo + $soLuongNhap > (int) $phongMay->suc_chua) {
+                    throw ValidationException::withMessages([
+                        'so_luong' => [
+                            "Phòng {$phongMay->ma_phong} chỉ còn {$soChoConTrong} chỗ trống, không thể nhập {$soLuongNhap} máy.",
+                        ],
+                    ]);
+                }
+
                 $tenPhong = trim($phongMay->ten_phong);
                 $soViTriLonNhatTrongPhong = Computer::query()
                     ->where('ma_phong', $phongMay->id)
@@ -180,8 +195,11 @@ class ComputerImportController extends Controller
 
     private function generateImportCode(): string
     {
-        for ($attempt = 1; $attempt <= 50; $attempt++) {
-            $code = 'PN-'.str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        $nextNumber = ((int) ComputerImport::query()->max('id')) + 1;
+
+        for ($attempt = 1; $attempt <= 50; $attempt++, $nextNumber++) {
+            // Sinh mã phiếu nhập tự tăng theo số thứ tự bản ghi, ví dụ PN-1, PN-2.
+            $code = 'PN-'.$nextNumber;
 
             if (! ComputerImport::where('ma_phieu_nhap', $code)->exists()) {
                 return $code;

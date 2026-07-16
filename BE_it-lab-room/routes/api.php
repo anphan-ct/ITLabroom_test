@@ -62,6 +62,7 @@ Route::middleware(['auth:sanctum', 'abilities:teacher'])->group(function () {
     Route::get('/teacher/room-bookings', [TeacherRoomBookingController::class, 'index']);
     Route::get('/teacher/room-bookings/availability', [TeacherRoomBookingController::class, 'availability']);
     Route::post('/teacher/room-bookings', [TeacherRoomBookingController::class, 'store']);
+    Route::post('/teacher/room-bookings/quick', [TeacherRoomBookingController::class, 'quickStore']);
     Route::patch('/teacher/room-bookings/{id}/cancel', [TeacherRoomBookingController::class, 'cancel']);
 
     // Báo cáo sự cố của giảng viên.

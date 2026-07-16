@@ -11,6 +11,7 @@ use App\Http\Resources\RoomUsageFormOptionsResource;
 use App\Models\ComputerLabSchedule;
 use App\Models\CourseSection;
 use App\Models\Room;
+use App\Models\RoomBooking;
 use App\Models\SchoolClass;
 use App\Models\Teacher;
 use App\Models\Week;
@@ -535,6 +536,22 @@ class ComputerLabScheduleController extends Controller
             }
         }
 
+        $bookingConflict = RoomBooking::query()
+            ->where('ma_phong', $data['ma_phong'])
+            ->whereDate('ngay_dat', $data['ngay_hoc_cu_the'])
+            ->where('trang_thai_duyet', 'approved')
+            ->when(
+                $data['ma_dat_phong_may'] ?? null,
+                fn ($query, $bookingId) => $query->where('id', '!=', $bookingId)
+            )
+            ->where('tiet_bat_dau', '<=', $data['so_tiet_ket_thuc'])
+            ->where('tiet_ket_thuc', '>=', $data['so_tiet_bat_dau'])
+            ->exists();
+
+        if ($bookingConflict) {
+            return 'room_booking_conflict';
+        }
+
         return null;
     }
 
@@ -942,6 +959,9 @@ class ComputerLabScheduleController extends Controller
 
             'course_section_conflict' =>
                 'Lớp học phần đã có lịch trùng ngày và khoảng tiết',
+
+            'room_booking_conflict' =>
+                'Phòng máy đã có đăng ký mượn phòng trùng ngày và khoảng tiết',
         ];
 
         return $messages[$conflict] ?? 'Lịch phòng máy bị trùng';
