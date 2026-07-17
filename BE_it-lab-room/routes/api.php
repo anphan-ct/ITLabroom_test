@@ -29,6 +29,7 @@ use App\Http\Controllers\teacher\AttendanceController as TeacherAttendanceContro
 use App\Http\Controllers\teacher\AuthController as TeacherAuthController;
 use App\Http\Controllers\teacher\ComputerLabScheduleController as TeacherComputerLabScheduleController;
 use App\Http\Controllers\teacher\RoomBookingController as TeacherRoomBookingController;
+use App\Http\Controllers\common\NotificationController;
 use Illuminate\Support\Facades\Route;
 
 // Nhóm API đăng nhập chuẩn RESTful cho admin, sinh viên và giảng viên.
@@ -51,6 +52,14 @@ Route::prefix('auth')->group(function () {
 // API tra cứu thông tin máy tính sau khi app mobile quét mã QR.
 Route::get('/scan/{qrCode}', [ComputerController::class, 'showByQrCode']);
 Route::middleware('auth:sanctum')->get('/computers/qr/{qrCode}', [ComputerController::class, 'showByQrCode']);
+
+// Nhóm API thông báo dùng chung cho cả admin, teacher, student
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
+    Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+});
 
 // Lịch giảng dạy và lịch học được lọc theo tài khoản đăng nhập dành cho giảng viên.
 Route::middleware(['auth:sanctum', 'abilities:teacher'])->group(function () {

@@ -10,7 +10,10 @@ use App\Models\IncidentReport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Services\NotificationService;
+use App\Models\Notification;
 use Throwable;
 
 /**
@@ -70,16 +73,30 @@ class IncidentReportController extends Controller
         try {
             $data = $request->validated();
 
-            $report = IncidentReport::create([
-                'ma_nguoi_bao_cao' => Auth::id(),
-                'ma_may_tinh'      => $data['ma_may_tinh'] ?? null,
-                'ma_thiet_bi'      => $data['ma_thiet_bi'] ?? null,
-                'loai_su_co'       => $data['loai_su_co'],
-                'tieu_de'          => $data['tieu_de'],
-                'mo_ta'            => $data['mo_ta'] ?? null,
-                'muc_do'           => $data['muc_do'],
-                'trang_thai'       => IncidentReportStatus::OPEN,
-            ]);
+            $report = DB::transaction(function () use ($data) {
+                $createdReport = IncidentReport::create([
+                    'ma_nguoi_bao_cao' => Auth::id(),
+                    'ma_may_tinh'      => $data['ma_may_tinh'] ?? null,
+                    'ma_thiet_bi'      => $data['ma_thiet_bi'] ?? null,
+                    'loai_su_co'       => $data['loai_su_co'],
+                    'tieu_de'          => $data['tieu_de'],
+                    'mo_ta'            => $data['mo_ta'] ?? null,
+                    'muc_do'           => $data['muc_do'],
+                    'trang_thai'       => IncidentReportStatus::OPEN,
+                ]);
+
+                $user = Auth::user();
+                $reporterName = $user ? $user->ho_ten : 'Người dùng';
+
+                NotificationService::notifyRole(
+                    'admin',
+                    'Báo cáo sự cố mới',
+                    "{$reporterName} vừa gửi báo cáo lỗi: {$createdReport->tieu_de}",
+                    Notification::SU_CO_MOI
+                );
+
+                return $createdReport;
+            });
 
             // Load quan hệ để trả resource đầy đủ
             $report->load([

@@ -1,7 +1,7 @@
 import {
   AlertTriangle,
   Bell,
-  CalendarClock,
+  XCircle,
   CheckCircle2,
   LogOut,
   Wrench,
@@ -9,68 +9,44 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useNotifications } from "../../hooks/useNotifications";
 
 const notificationTypes = {
-  incident: {
+  new: {
     icon: AlertTriangle,
     className: "bg-rose-100 text-rose-600",
   },
-  booking: {
-    icon: CalendarClock,
-    className: "bg-blue-100 text-blue-600",
-  },
-  maintenance: {
+  processing: {
     icon: Wrench,
     className: "bg-amber-100 text-amber-600",
   },
-  success: {
+  resolved: {
     icon: CheckCircle2,
     className: "bg-emerald-100 text-emerald-600",
   },
+  rejected: {
+    icon: XCircle,
+    className: "bg-slate-100 text-slate-600",
+  },
 };
 
-const defaultNotifications = [
-  {
-    id: 1,
-    type: "incident",
-    title: "Báo cáo sự cố mới",
-    description: "Giảng viên vừa gửi báo cáo lỗi máy tại phòng F7.1.",
-    time: "5 phút",
-    unread: true,
-  },
-  {
-    id: 2,
-    type: "booking",
-    title: "Mượn phòng nhanh",
-    description: "Phòng F7.2 đã được mượn nhanh cho tiết 1 - 3 hôm nay.",
-    time: "20 phút",
-    unread: true,
-  },
-  {
-    id: 3,
-    type: "maintenance",
-    title: "Phiếu bảo trì đang xử lý",
-    description: "Máy PC-11-002 được chuyển sang trạng thái bảo trì.",
-    time: "1 giờ",
-    unread: false,
-  },
-  {
-    id: 4,
-    type: "success",
-    title: "Đăng ký phòng đã duyệt",
-    description: "Yêu cầu sử dụng phòng F7.1 đã được xác nhận.",
-    time: "Hôm qua",
-    unread: false,
-  },
-];
+const defaultConfig = {
+  icon: Bell,
+  className: "bg-blue-100 text-blue-600",
+};
 
-function NotificationItem({ notification }) {
-  const config = notificationTypes[notification.type] || notificationTypes.success;
+function NotificationItem({ notification, onMarkAsRead }) {
+  const config = notificationTypes[notification.loai_thong_bao] || defaultConfig;
   const Icon = config.icon;
 
   return (
     <button
       type="button"
+      onClick={() => {
+        if (!notification.da_doc) {
+          onMarkAsRead(notification.id);
+        }
+      }}
       className="grid w-full grid-cols-[44px_minmax(0,1fr)_12px] gap-3 rounded-lg px-3 py-3 text-left transition hover:bg-slate-100"
     >
       <span className={`flex h-11 w-11 items-center justify-center rounded-full ${config.className}`}>
@@ -79,18 +55,18 @@ function NotificationItem({ notification }) {
 
       <span className="min-w-0">
         <span className="block text-sm font-bold text-slate-900">
-          {notification.title}
+          {notification.tieu_de}
         </span>
         <span className="mt-1 line-clamp-2 block text-sm leading-5 text-slate-600">
-          {notification.description}
+          {notification.noi_dung}
         </span>
         <span className="mt-1 block text-xs font-bold text-[#193D87]">
-          {notification.time}
+          {notification.created_at}
         </span>
       </span>
 
       <span className="flex items-center justify-center">
-        {notification.unread ? (
+        {!notification.da_doc ? (
           <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
         ) : null}
       </span>
@@ -112,10 +88,20 @@ export default function Header({
   const accountRef = useRef(null);
   const notificationRef = useRef(null);
 
-  const unreadCount = defaultNotifications.filter((item) => item.unread).length;
-  const visibleNotifications = notificationTab === "unread"
-    ? defaultNotifications.filter((item) => item.unread)
-    : defaultNotifications;
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+  } = useNotifications();
+
+  useEffect(() => {
+    if (!notificationOpen) return;
+    const params = notificationTab === "unread" ? { status: "unread" } : {};
+    fetchNotifications(params);
+  }, [notificationOpen, notificationTab, fetchNotifications]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -206,10 +192,11 @@ export default function Header({
                       </h2>
                       <button
                         type="button"
-                        className="rounded-full px-2 py-1 text-lg font-bold text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                        aria-label="Tùy chọn thông báo"
+                        onClick={markAllAsRead}
+                        className="rounded-full px-2 py-1 text-sm font-bold text-[#193D87] hover:bg-slate-100 hover:text-[#132d66]"
+                        aria-label="Đánh dấu tất cả đã đọc"
                       >
-                        ...
+                        Đánh dấu tất cả đã đọc
                       </button>
                     </div>
 
@@ -250,16 +237,21 @@ export default function Header({
                       </button>
                     </div>
 
-                    {visibleNotifications.length > 0 ? (
-                      visibleNotifications.map((notification) => (
+                    {loading ? (
+                      <div className="px-4 py-10 text-center text-sm font-semibold text-slate-500">
+                        Đang tải...
+                      </div>
+                    ) : notifications.length > 0 ? (
+                      notifications.map((notification) => (
                         <NotificationItem
                           key={notification.id}
                           notification={notification}
+                          onMarkAsRead={markAsRead}
                         />
                       ))
                     ) : (
                       <div className="px-4 py-10 text-center text-sm font-semibold text-slate-500">
-                        Không có thông báo chưa đọc.
+                        Không có thông báo nào.
                       </div>
                     )}
                   </div>

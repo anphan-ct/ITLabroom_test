@@ -170,6 +170,12 @@ export const CONST_APIS = {
     ADMIN_UPDATE: (id) => `/api/admin/return-requests/${id}`,
     ADMIN_DELETE: (id) => `/api/admin/return-requests/${id}`,
   },
+  NOTIFICATIONS: {
+    INDEX: "/api/notifications",
+    UNREAD_COUNT: "/api/notifications/unread-count",
+    MARK_READ: (id) => `/api/notifications/${id}/read`,
+    MARK_ALL_READ: "/api/notifications/read-all",
+  },
 };
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || "";

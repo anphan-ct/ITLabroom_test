@@ -54,7 +54,7 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
   // Xác định vai trò mặc định từ query param hoặc prop
   const roleQueryMap = Object.fromEntries(roles.map((r) => [r.ten_vai_tro, r.id]));
   const queryRole = searchParams.get("role");
-  const initialRoleId = roleQueryMap[queryRole] || roleQueryMap[defaultRole] || 2;
+  const initialRoleId = roleQueryMap[queryRole] || roleQueryMap[defaultRole] || roleQueryMap["student"] || (roles[0]?.id ?? "");
 
   // State cho form
   const [formData, setFormData] = useState(getInitialFormData(initialRoleId));
@@ -84,9 +84,10 @@ export default function UserFormPage({ defaultRole = "Sinh viên" }) {
   const [toast, setToast] = useState(null);
 
   const roleId = Number(formData.ma_vai_tro);
-  const isStudentRole = roleId === 2;
-  const isTeacherRole = roleId === 3;
-  const isAdminRole = roleId === 1;
+  const currentRoleName = roles.find((r) => r.id === roleId)?.ten_vai_tro;
+  const isStudentRole = currentRoleName === "student";
+  const isTeacherRole = currentRoleName === "teacher";
+  const isAdminRole = currentRoleName === "admin";
   const userCodeLabel = isTeacherRole ? "Mã giảng viên" : isStudentRole ? "Mã sinh viên" : "";
 
   const backPath = "/admin/users";

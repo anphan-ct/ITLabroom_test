@@ -12,6 +12,8 @@ use App\Models\IncidentReport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use App\Services\NotificationService;
+use App\Models\Notification;
 use Throwable;
 
 class IncidentReportController extends Controller
@@ -122,6 +124,20 @@ class IncidentReportController extends Controller
                             'trang_thai' => \App\Enums\MaintenanceTicketStatus::PENDING,
                         ]);
                     }
+
+                    NotificationService::notifyUser(
+                        $lockedReport->ma_nguoi_bao_cao,
+                        "Sự cố đang được xử lý",
+                        "Báo cáo '{$lockedReport->tieu_de}' của bạn đã được tiếp nhận và đang xử lý",
+                        Notification::SU_CO_DANG_SUA
+                    );
+                } elseif ($action === 'reject') {
+                    NotificationService::notifyUser(
+                        $lockedReport->ma_nguoi_bao_cao,
+                        "Sự cố bị từ chối",
+                        "Báo cáo '{$lockedReport->tieu_de}' của bạn đã bị từ chối",
+                        Notification::SU_CO_TU_CHOI
+                    );
                 }
             });
 

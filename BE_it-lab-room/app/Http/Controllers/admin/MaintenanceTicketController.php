@@ -15,6 +15,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Services\NotificationService;
+use App\Models\Notification;
 use Throwable;
 
 class MaintenanceTicketController extends Controller
@@ -116,6 +118,13 @@ class MaintenanceTicketController extends Controller
                                 ->where('trang_thai', 'maintenance')
                                 ->update(['trang_thai' => 'active']);
                         }
+
+                        NotificationService::notifyUser(
+                            $incidentReport->ma_nguoi_bao_cao,
+                            "Sự cố đã khắc phục",
+                            "Báo cáo '{$incidentReport->tieu_de}' của bạn đã được khắc phục xong",
+                            Notification::SU_CO_DA_KHAC_PHUC
+                        );
                     }
                 }
             });
