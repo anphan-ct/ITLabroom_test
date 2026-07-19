@@ -6,6 +6,10 @@ import {
   LogOut,
   Wrench,
   UserRound,
+  CalendarPlus,
+  CalendarCheck,
+  CalendarX,
+  Zap,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -26,7 +30,23 @@ const notificationTypes = {
   },
   rejected: {
     icon: XCircle,
-    className: "bg-slate-100 text-slate-600",
+    className: "bg-red-100 text-red-600",
+  },
+  room_booking_new: {
+    icon: CalendarPlus,
+    className: "bg-indigo-100 text-indigo-600",
+  },
+  room_booking_approved: {
+    icon: CalendarCheck,
+    className: "bg-cyan-100 text-cyan-600",
+  },
+  room_booking_rejected: {
+    icon: CalendarX,
+    className: "bg-red-100 text-red-700",
+  },
+  room_booking_quick: {
+    icon: Zap,
+    className: "bg-teal-100 text-teal-600",
   },
 };
 
@@ -95,7 +115,10 @@ export default function Header({
     fetchNotifications,
     markAsRead,
     markAllAsRead,
-  } = useNotifications();
+  } = useNotifications({
+    panelOpen: notificationOpen,
+    currentTab: notificationTab,
+  });
 
   useEffect(() => {
     if (!notificationOpen) return;
@@ -144,9 +167,8 @@ export default function Header({
       )}
 
       <div
-        className={`flex min-h-[72px] items-center gap-4 px-4 sm:px-6 md:pl-6 ${
-          showMenuButton ? "pr-14 md:pr-0" : ""
-        }`}
+        className={`flex min-h-[72px] items-center gap-4 px-4 sm:px-6 md:pl-6 ${showMenuButton ? "pr-14 md:pr-0" : ""
+          }`}
       >
         <Link to="/" className="flex min-w-0 items-center gap-3">
           <img
@@ -204,22 +226,20 @@ export default function Header({
                       <button
                         type="button"
                         onClick={() => setNotificationTab("all")}
-                        className={`rounded-full px-4 py-2 text-sm font-bold ${
-                          notificationTab === "all"
+                        className={`rounded-full px-4 py-2 text-sm font-bold ${notificationTab === "all"
                             ? "bg-blue-100 text-[#193D87]"
                             : "text-slate-600 hover:bg-slate-100"
-                        }`}
+                          }`}
                       >
                         Tất cả
                       </button>
                       <button
                         type="button"
                         onClick={() => setNotificationTab("unread")}
-                        className={`rounded-full px-4 py-2 text-sm font-bold ${
-                          notificationTab === "unread"
+                        className={`rounded-full px-4 py-2 text-sm font-bold ${notificationTab === "unread"
                             ? "bg-blue-100 text-[#193D87]"
                             : "text-slate-600 hover:bg-slate-100"
-                        }`}
+                          }`}
                       >
                         Chưa đọc
                       </button>
@@ -259,44 +279,44 @@ export default function Header({
               )}
             </div>
 
-          <div ref={accountRef} className="relative min-w-0">
-            <button
-              type="button"
-              onClick={() => setAccountOpen((open) => !open)}
-              className="flex min-w-0 cursor-pointer items-center gap-3 px-2 py-1.5 text-white"
-              aria-expanded={accountOpen}
-              aria-haspopup="menu"
-            >
-              <div className="min-w-0 text-right leading-tight">
-                <p className="truncate text-sm font-bold text-white">
-                  {currentUser?.full_name || currentUser?.name || "Tài khoản"}
-                </p>
-                <p className="mt-1 truncate text-xs font-medium text-blue-100">
-                  {currentUser?.email || roleLabel || "Đang đăng nhập"}
-                </p>
-              </div>
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center">
-                <UserRound size={20} />
-              </span>
-            </button>
-
-            {accountOpen && (
-              <div
-                className="absolute right-0 top-full mt-2 w-56 rounded-lg border border-slate-200 bg-white p-2 text-slate-900 shadow-lg"
-                role="menu"
+            <div ref={accountRef} className="relative min-w-0">
+              <button
+                type="button"
+                onClick={() => setAccountOpen((open) => !open)}
+                className="flex min-w-0 cursor-pointer items-center gap-3 px-2 py-1.5 text-white"
+                aria-expanded={accountOpen}
+                aria-haspopup="menu"
               >
-                <button
-                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-950"
-                  onClick={handleLogout}
-                  type="button"
-                  role="menuitem"
+                <div className="min-w-0 text-right leading-tight">
+                  <p className="truncate text-sm font-bold text-white">
+                    {currentUser?.full_name || currentUser?.name || "Tài khoản"}
+                  </p>
+                  <p className="mt-1 truncate text-xs font-medium text-blue-100">
+                    {currentUser?.email || roleLabel || "Đang đăng nhập"}
+                  </p>
+                </div>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center">
+                  <UserRound size={20} />
+                </span>
+              </button>
+
+              {accountOpen && (
+                <div
+                  className="absolute right-0 top-full mt-2 w-56 rounded-lg border border-slate-200 bg-white p-2 text-slate-900 shadow-lg"
+                  role="menu"
                 >
-                  <LogOut size={16} />
-                  <span>Đăng xuất</span>
-                </button>
-              </div>
-            )}
-          </div>
+                  <button
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-950"
+                    onClick={handleLogout}
+                    type="button"
+                    role="menuitem"
+                  >
+                    <LogOut size={16} />
+                    <span>Đăng xuất</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

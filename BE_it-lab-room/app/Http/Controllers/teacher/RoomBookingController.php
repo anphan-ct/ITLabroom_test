@@ -29,7 +29,7 @@ class RoomBookingController extends Controller
 
             $bookings = RoomBooking::query()
                 ->where('ma_giang_vien', $teacher->id)
-                ->when($data['status'] ?? null, fn ($query, $status) => $query->where('trang_thai_duyet', $status))
+                ->when($data['status'] ?? null, fn($query, $status) => $query->where('trang_thai_duyet', $status))
                 ->with($this->relations())
                 ->orderByDesc('created_at')
                 ->get();
@@ -145,7 +145,7 @@ class RoomBookingController extends Controller
                 return $this->forbiddenResponse();
             }
 
-            $result = DB::transaction(function () use ($data, $teacher, $approvalStatus) {
+            $result = DB::transaction(function () use ($request, $data, $teacher, $approvalStatus) {
                 $room = Room::query()->whereKey($data['ma_phong'])->lockForUpdate()->firstOrFail();
 
                 if (str_contains(mb_strtolower($room->ten_phong ?? ''), 'kho')) {
@@ -160,7 +160,7 @@ class RoomBookingController extends Controller
                     return 'Phòng đã có yêu cầu đặt hoặc lịch sử dụng trùng thời gian.';
                 }
 
-                return RoomBooking::create([
+                $booking = RoomBooking::create([
                     'ma_giang_vien' => $teacher->id,
                     'ma_phong' => $data['ma_phong'],
                     'ngay_dat' => $data['ngay_dat'],
@@ -169,6 +169,21 @@ class RoomBookingController extends Controller
                     'muc_dich' => $data['muc_dich'],
                     'trang_thai_duyet' => $approvalStatus,
                 ]);
+
+                $userName = $request->user()->ho_ten ?? $request->user()->name ?? 'Giảng viên';
+                $roomName = $room->ten_phong ?? $room->ma_phong;
+
+                if ($approvalStatus === 'pending') {
+                    $tieuDe = 'Yêu cầu đặt phòng mới';
+                    $noiDung = "Giảng viên {$userName} đã gửi yêu cầu đặt phòng {$roomName} vào ngày {$data['ngay_dat']}, từ tiết {$data['so_tiet_bat_dau']} đến tiết {$data['so_tiet_ket_thuc']}.";
+                    \App\Services\NotificationService::notifyRole('admin', $tieuDe, $noiDung, \App\Models\Notification::DAT_PHONG_MOI);
+                } else {
+                    $tieuDe = 'Mượn phòng nhanh';
+                    $noiDung = "Giảng viên {$userName} vừa mượn nhanh phòng {$roomName} vào ngày {$data['ngay_dat']}, từ tiết {$data['so_tiet_bat_dau']} đến tiết {$data['so_tiet_ket_thuc']}.";
+                    \App\Services\NotificationService::notifyRole('admin', $tieuDe, $noiDung, \App\Models\Notification::MUON_PHONG_NHANH);
+                }
+
+                return $booking;
             }, 3);
 
             if (is_string($result)) {
@@ -193,7 +208,7 @@ class RoomBookingController extends Controller
         }
     }
 
-    public function cancel($id, Request $request)
+    public function cancel(int $id, Request $request)
     {
         try {
             $teacher = $request->user()?->teacher;
