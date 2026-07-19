@@ -6,42 +6,29 @@ import {
   markAllNotificationsAsReadFromApi,
 } from "../services/notification.service";
 
-export function useNotifications() {
+export function useNotifications({ panelOpen = false, currentTab = "all" } = {}) {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  
+
   const isMountedRef = useRef(true);
+  const panelStateRef = useRef({ panelOpen, currentTab });
+  const prevUnreadCountRef = useRef(0);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
     };
   }, []);
 
-  // Polling unread count
   useEffect(() => {
-    let isMounted = true;
-    
-    const fetchUnreadCount = async () => {
-      try {
-        const response = await getUnreadNotificationCountFromApi();
-        if (isMounted && response?.data) {
-          setUnreadCount(response.data.unread_count || 0);
-        }
-      } catch (error) {
-        console.error("Failed to fetch unread count:", error);
-      }
-    };
+    panelStateRef.current = { panelOpen, currentTab };
+  }, [panelOpen, currentTab]);
 
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, []);
+  useEffect(() => {
+    prevUnreadCountRef.current = unreadCount;
+  }, [unreadCount]);
 
   const fetchNotifications = useCallback(async (params = {}) => {
     setLoading(true);
@@ -57,6 +44,40 @@ export function useNotifications() {
       if (isMountedRef.current) setLoading(false);
     }
   }, []);
+
+  // Polling unread count
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchUnreadCount = async () => {
+      try {
+        const response = await getUnreadNotificationCountFromApi();
+        if (isMounted && response?.data) {
+          const newCount = response.data.unread_count || 0;
+
+          if (newCount > prevUnreadCountRef.current) {
+            const { panelOpen: currentPanelOpen, currentTab: currentPanelTab } = panelStateRef.current;
+            if (currentPanelOpen) {
+              const params = currentPanelTab === "unread" ? { status: "unread" } : {};
+              fetchNotifications(params);
+            }
+          }
+
+          setUnreadCount(newCount);
+        }
+      } catch (error) {
+        console.error("Failed to fetch unread count:", error);
+      }
+    };
+
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 20000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [fetchNotifications]);
 
   const markAsRead = async (id) => {
     const prevNotifications = [...notifications];

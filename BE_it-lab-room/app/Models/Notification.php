@@ -29,6 +29,11 @@ class Notification extends Model
     const SU_CO_DANG_SUA = 'processing';
     const SU_CO_DA_KHAC_PHUC = 'resolved';
     const SU_CO_TU_CHOI = 'rejected';
+    
+    const DAT_PHONG_MOI = 'room_booking_new';
+    const DAT_PHONG_DUYET = 'room_booking_approved';
+    const DAT_PHONG_TU_CHOI = 'room_booking_rejected';
+    const MUON_PHONG_NHANH = 'room_booking_quick';
 
     public function recipient(): BelongsTo 
     { 

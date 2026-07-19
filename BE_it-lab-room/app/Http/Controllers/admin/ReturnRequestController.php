@@ -13,8 +13,6 @@ use Illuminate\Support\Facades\DB;
 use Throwable;
 use App\Http\Resources\ReturnRequestResource;
 use App\Http\Requests\ReturnRequestRequest;
-use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 
 class ReturnRequestController extends Controller
 {
@@ -167,15 +165,19 @@ class ReturnRequestController extends Controller
 
     private function generateReturnCode(): string
     {
-        for ($attempt = 1; $attempt <= 50; $attempt++) {
-            $code = 'PT-' . strtoupper(Str::random(6));
-            if (! ReturnRequest::where('ma_phieu_tra', $code)->exists()) {
-                return $code;
-            }
+        // Lấy bản ghi có mã đúng định dạng PT-xxx lớn nhất, khóa row để tính
+        $latestRecord = ReturnRequest::where('ma_phieu_tra', 'REGEXP', '^PT-[0-9]+$')
+            ->lockForUpdate()
+            ->orderByRaw('CAST(SUBSTRING(ma_phieu_tra, 4) AS UNSIGNED) DESC')
+            ->first();
+
+        $nextNumber = 1;
+        if ($latestRecord) {
+            $numberPart = substr($latestRecord->ma_phieu_tra, 3);
+            $nextNumber = (int) $numberPart + 1;
         }
-        throw ValidationException::withMessages([
-            'ma_phieu_tra' => ['Không thể tạo mã phiếu trả, vui lòng thử lại.'],
-        ]);
+
+        return 'PT-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
     }
 
     public function confirm(ReturnRequestConfirmRequest $request, ReturnRequest $returnRequest)

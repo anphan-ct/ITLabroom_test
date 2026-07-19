@@ -14,8 +14,6 @@ use Illuminate\Support\Facades\DB;
 use Throwable;
 use App\Http\Resources\LoanRequestResource;
 use App\Http\Requests\LoanRequestRequest;
-use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 
 class LoanRequestController extends Controller
 {
@@ -86,12 +84,17 @@ class LoanRequestController extends Controller
     {
         try {
             $data = $request->validated();
+
+            DB::beginTransaction();
+
             $data['ma_phieu_muon'] = $this->generateLoanCode();
             // Trạng thái giữ placeholder APPROVED hoặc PENDING vì getTrangThaiHienThiAttribute sẽ tính lại
             // Tuy nhiên trong CSDL vẫn cần giá trị hợp lệ với enum
             $data['trang_thai'] = LoanRequestStatus::APPROVED->value;
 
             $loanRequest = LoanRequest::create($data);
+
+            DB::commit();
 
             return response()->json([
                 'status' => true,
@@ -100,6 +103,7 @@ class LoanRequestController extends Controller
                 'data' => $loanRequest
             ], 201);
         } catch (Throwable $e) {
+            DB::rollBack();
             return response()->json([
                 'status' => false,
                 'message' => 'Lỗi hệ thống: ' . $e->getMessage(),
@@ -141,15 +145,19 @@ class LoanRequestController extends Controller
 
     private function generateLoanCode(): string
     {
-        for ($attempt = 1; $attempt <= 50; $attempt++) {
-            $code = 'PM-' . strtoupper(Str::random(6));
-            if (! LoanRequest::where('ma_phieu_muon', $code)->exists()) {
-                return $code;
-            }
+        // Lấy bản ghi có mã đúng định dạng PM-xxx lớn nhất, khóa row để tính
+        $latestRecord = LoanRequest::where('ma_phieu_muon', 'REGEXP', '^PM-[0-9]+$')
+            ->lockForUpdate()
+            ->orderByRaw('CAST(SUBSTRING(ma_phieu_muon, 4) AS UNSIGNED) DESC')
+            ->first();
+
+        $nextNumber = 1;
+        if ($latestRecord) {
+            $numberPart = substr($latestRecord->ma_phieu_muon, 3);
+            $nextNumber = (int) $numberPart + 1;
         }
-        throw ValidationException::withMessages([
-            'ma_phieu_muon' => ['Không thể tạo mã phiếu mượn, vui lòng thử lại.'],
-        ]);
+
+        return 'PM-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
     }
 
     public function assignComputers(LoanRequestApprovalRequest $request, LoanRequest $loanRequest)
